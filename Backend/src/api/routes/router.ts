@@ -15,6 +15,7 @@ import { CreateRestaurant } from "../../modules/restaurant/restaurant.create";
 import { CreateBooking} from "../../modules/Booking/Booking.create";
 import { getMyBookings } from "../../modules/Booking/booking.get";
 import { cancelMyBooking } from "../../modules/Booking/booking.cancel";
+import { getMyRestaurant } from "../../modules/restaurant/restaurant.mine";
 
 
 const authRouter = Router();
@@ -33,6 +34,7 @@ export const Login = authRouter.post("/login",loginLimiter,validate(loginSchema)
 
 export const Restaurant = authRouter.post("/createRestaurant",authenticate, CreateRestaurant)
 export const Resources = authRouter.post("/createResources", authenticate,CreateResources)
+export const MyRestaurant = authRouter.get("/mine", authenticate, getMyRestaurant);
 
 export const Booking = authRouter.post("/createBookings", authenticate,CreateBooking)
 export const getBooking = authRouter.get("/getbookings",authenticate,getMyBookings)
