@@ -1,6 +1,6 @@
 import authRouter from "./routes/router";
 import type { Request,Response } from "express";
-import { Signup, Login, Resources, Restaurant, Booking, getBooking, refresh, cancelBooking, MyRestaurant} from "./routes/router";
+import { Signup, Login, Resources, Restaurant, Booking, getBooking, refresh, cancelBooking, MyRestaurant , ResourcesByRestaurant, ownerBooking} from "./routes/router";
 
 authRouter.get("/verify",(req:Request, res:Response)=>{
     res.send("working")
@@ -14,5 +14,7 @@ authRouter.use("/api/Booking",getBooking);
 authRouter.use("/api/auth",refresh);
 authRouter.use("/api/cancel",cancelBooking);
 authRouter.use("/api/restaurants",MyRestaurant);
+authRouter.use("/api/restaurants", ResourcesByRestaurant);
+authRouter.use("/api",ownerBooking);
 
 export {authRouter};

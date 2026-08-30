@@ -16,6 +16,8 @@ import { CreateBooking} from "../../modules/Booking/Booking.create";
 import { getMyBookings } from "../../modules/Booking/booking.get";
 import { cancelMyBooking } from "../../modules/Booking/booking.cancel";
 import { getMyRestaurant } from "../../modules/restaurant/restaurant.mine";
+import { getResourcesByRestaurant } from "../../modules/resources/resources.get";
+import { getOwnerBookings } from "../../modules/Booking/get.owner.booking";
 
 
 const authRouter = Router();
@@ -27,18 +29,19 @@ authRouter.get("/",(_,res:Response)=>{
     })
 })
 
-export const refresh = authRouter.post("/refresh",refreshRotation)
+export const refresh = authRouter.post("/refresh",refreshRotation);
 
-export const  Signup = authRouter.post("/signup", registerLimiter,validate(registerSchema),signup)
-export const Login = authRouter.post("/login",loginLimiter,validate(loginSchema),login)
+export const  Signup = authRouter.post("/signup", registerLimiter,validate(registerSchema),signup);
+export const Login = authRouter.post("/login",loginLimiter,validate(loginSchema),login);
 
-export const Restaurant = authRouter.post("/createRestaurant",authenticate, CreateRestaurant)
-export const Resources = authRouter.post("/createResources", authenticate,CreateResources)
+export const Restaurant = authRouter.post("/createRestaurant",authenticate, CreateRestaurant);
+export const Resources = authRouter.post("/createResources", authenticate,CreateResources);
 export const MyRestaurant = authRouter.get("/mine", authenticate, getMyRestaurant);
+export const ResourcesByRestaurant = authRouter.get("/resources",authenticate,getResourcesByRestaurant );
 
-export const Booking = authRouter.post("/createBookings", authenticate,CreateBooking)
-export const getBooking = authRouter.get("/getbookings",authenticate,getMyBookings)
-export const cancelBooking = authRouter.patch("/bookings/:id/cancel", authenticate, cancelMyBooking)
-
+export const Booking = authRouter.post("/createBookings", authenticate,CreateBooking);
+export const getBooking = authRouter.get("/getbookings",authenticate,getMyBookings);
+export const cancelBooking = authRouter.patch("/bookings/:id/cancel", authenticate, cancelMyBooking);
+export const ownerBooking = authRouter.get("/bookings/owner", authenticate, getOwnerBookings);
 
 export default authRouter;
