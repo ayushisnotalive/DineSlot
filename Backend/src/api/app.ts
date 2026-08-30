@@ -1,7 +1,26 @@
 import authRouter from "./routes/router";
-import type { Request,Response } from "express";
+import { urlencoded, type Request,type Response } from "express";
+import express from "express";
 import { Signup, Login, Resources, Restaurant, Booking, getBooking, refresh, cancelBooking, MyRestaurant , ResourcesByRestaurant, ownerBooking} from "./routes/router";
+import { url } from "inspector";
 
+
+
+
+const cors = require('cors');
+
+authRouter.use(urlencoded({ extended: true }));
+authRouter.use(express.json());
+authRouter.use(cors({
+  // Use the exact origin of your frontend, NOT a wildcard '*'
+  origin: process.env.NODE_ENV === 'production' 
+    ? 'https://your-frontend-domain.com' 
+    : 'http://localhost:5173',
+  // Required to allow the browser to send and receive cookies
+  credentials: true 
+})
+
+);
 authRouter.get("/verify",(req:Request, res:Response)=>{
     res.send("working")
 })
