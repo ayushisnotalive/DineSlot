@@ -3,7 +3,9 @@ import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import axios from "axios";
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.PROD
+  ? "https://dineslot-production-5dfd.up.railway.app"
+  : "http://localhost:5000"; // Adjust local backend port if needed
 
 export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [authStatus, setAuthStatus] = useState<"loading" | "authenticated" | "unauthenticated">("loading");
