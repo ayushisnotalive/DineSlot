@@ -23,18 +23,9 @@ import { getOwnerBookings } from "../../modules/Booking/get.owner.booking";
 
 const authRouter = Router();
 
-const cors = require('cors');
-
 authRouter.use(urlencoded({ extended: true }));
 authRouter.use(express.json());
-authRouter.use(cors({
-  // Use the exact origin of your frontend, NOT a wildcard '*'
-  origin: process.env.NODE_ENV === 'production' 
-    ? 'https://your-frontend-domain.com' 
-    : 'http://localhost:5173',
-  // Required to allow the browser to send and receive cookies
-  credentials: true 
-}));
+
 
 
 authRouter.get("/",(_,res:Response)=>{

@@ -5,22 +5,27 @@ import { Signup, Login, Resources, Restaurant, Booking, getBooking, refresh, can
 import { url } from "inspector";
 
 
-
-
-const cors = require('cors');
-
 authRouter.use(urlencoded({ extended: true }));
 authRouter.use(express.json());
-authRouter.use(cors({
-  // Use the exact origin of your frontend, NOT a wildcard '*'
-  origin: process.env.NODE_ENV === 'production' 
-    ? 'https://your-frontend-domain.com' 
-    : 'http://localhost:5173',
-  // Required to allow the browser to send and receive cookies
-  credentials: true 
-})
 
-);
+import cors from "cors";
+
+const allowedOrigins = [
+  "http://localhost:5173",
+];
+
+authRouter.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+}));
+
+
 authRouter.get("/verify",(req:Request, res:Response)=>{
     res.send("working")
 })
