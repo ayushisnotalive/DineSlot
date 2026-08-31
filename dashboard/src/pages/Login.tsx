@@ -21,7 +21,7 @@ export default function Login() {
 
     try {
       const response = await api.post('/auth/login', { email, password });
-      setAccessToken(response.data.success);
+      setAccessToken(response.data.accessToken);
       navigate('/dashboard');
     } catch (err) {
       if (isAxiosError(err) && err.response) {
