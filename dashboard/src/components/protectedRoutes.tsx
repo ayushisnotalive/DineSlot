@@ -1,33 +1,47 @@
-// src/components/ProtectedRoute.tsx
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import axios from "axios";
-import { useAuth } from "../context/AuthContext";
 
 const API_URL = import.meta.env.PROD
   ? "https://dineslot-production-5dfd.up.railway.app"
-  : "http://localhost:5000"; // Adjust local backend port if needed
+  : "http://localhost:5000";
 
-export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { accessToken } = useAuth();
-  const [authStatus, setAuthStatus] = useState<"loading" | "authenticated" | "unauthenticated">("loading");
+export const ProtectedRoute = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => {
+  const [authStatus, setAuthStatus] = useState<
+    "loading" | "authenticated" | "unauthenticated"
+  >("loading");
 
   useEffect(() => {
-    if (!accessToken) {
-      setAuthStatus("unauthenticated");
-      return;
-    }
-    axios
-      .get(`${API_URL}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      })
-      .then(() => setAuthStatus("authenticated"))
-      .catch(() => setAuthStatus("unauthenticated"));
-  }, [accessToken]);
+    const checkAuth = async () => {
+      try {
+        // Browser automatically sends the httpOnly accessToken cookie
+        const response = await axios.get(
+          `${API_URL}/api/auth/me`,
+          {
+            withCredentials: true,
+          }
+        );
 
+        if (response.data.success) {
+          setAuthStatus("authenticated");
+        } else {
+          setAuthStatus("unauthenticated");
+        }
+
+      } catch (error) {
+        setAuthStatus("unauthenticated");
+      }
+    };
+
+    checkAuth();
+  }, []);
 
   if (authStatus === "loading") {
-    return <div>Loading...</div>; // replace with a real spinner/skeleton later
+    return <div>Loading...</div>;
   }
 
   if (authStatus === "unauthenticated") {
@@ -36,3 +50,4 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   return <>{children}</>;
 };
+
