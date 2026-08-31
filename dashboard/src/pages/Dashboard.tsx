@@ -1,7 +1,21 @@
 import { useNavigate } from 'react-router-dom';
-
+import api from '../api';
 export default function Dashboard() {
   const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+        await api.post(
+            `/api/auth/logout`,
+            {},
+            { withCredentials: true }
+        );
+
+        navigate("/login");
+    } catch (err) {
+        console.error(err);
+    }
+};
 
   return (
     <div className="min-h-screen bg-[#fbf9f6]">
@@ -10,7 +24,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="text-2xl font-serif text-gray-900 tracking-tight">DineSlot</div>
           <button 
-            onClick={() => navigate('/login')}
+            onClick={handleLogout}
             className="text-sm font-medium text-gray-600 hover:text-[var(--color-terracotta-600)] transition-colors duration-200"
           >
             Sign out
