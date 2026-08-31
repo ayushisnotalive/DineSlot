@@ -15,6 +15,6 @@ export const logout = (req: Request, res: Response) => {
 
     return res.status(200).json({
         success: true,
-        message: "Logged out successfully"
+        message: "Logged out successfully",
     });
 };

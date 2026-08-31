@@ -5,15 +5,10 @@ export default function Dashboard() {
 
   const handleLogout = async () => {
     try {
-        await api.post(
-            `/api/auth/logout`,
-            {},
-            { withCredentials: true }
-        );
-
+        await api.post("/auth/logout");
         navigate("/login");
-    } catch (err) {
-        console.error(err);
+    } catch (error) {
+        console.error(error);
     }
 };
 

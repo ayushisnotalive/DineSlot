@@ -6,20 +6,33 @@ export interface AuthRequest extends Request {
   userId?: string;
 }
 
-export const authenticate = (req: AuthRequest, res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
+export const authenticate = (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+) => {
+    const token = req.cookies?.accessToken;
 
-  if (!token) {
-    res.status(401).json({ error: "Not authenticated" });
-    return;
-  }
+    if (!token) {
+        return res.status(401).json({
+            success: false,
+            message: "Not authenticated",
+        });
+    }
 
-  try {
-    const decoded = Jwt.verify(token, env.JWT_ACCESS_SECRET) as { userId: string };
-    req.userId = decoded.userId;
-    next();
-  } catch (e) {
-    res.status(401).json({ error: "Invalid or expired access token" });
-  }
+    try {
+        const decoded = Jwt.verify(
+            token,
+            env.JWT_ACCESS_SECRET
+        ) as { userId: string };
+
+        req.userId = decoded.userId;
+
+        next();
+    } catch {
+        return res.status(401).json({
+            success: false,
+            message: "Invalid or expired access token",
+        });
+    }
 };
