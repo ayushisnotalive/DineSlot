@@ -20,8 +20,8 @@ export const refreshRotation = async(req:Request, res:Response)=>{
 
         res.cookie("accessToken", newAccessToken, {
         httpOnly: true,
-        secure: env.NODE_ENV === "production",
-        sameSite: "strict",
+        secure: true,
+        sameSite: "none",
         maxAge: 15 * 60 * 1000,
 
 

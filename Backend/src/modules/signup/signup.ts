@@ -62,15 +62,15 @@ export const signup = async (req: Request, res: Response) => {
 
         res.cookie("accessToken", accessToken, {
             httpOnly: true,
-            secure: env.NODE_ENV === "production",
-            sameSite: "strict",
+            secure: true,
+            sameSite: "none",
             maxAge: 15 * 60 * 1000,
         });
 
         res.cookie("csrfToken", csrfToken, {
             httpOnly: false,
-            secure: env.NODE_ENV === "production",
-            sameSite: "strict",
+            secure: true,
+            sameSite: "none",
             maxAge: 15 * 60 * 1000,
         });
 
