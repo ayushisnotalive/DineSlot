@@ -1,22 +1,15 @@
 import authRouter from "./routes/router";
-import { urlencoded, type Request,type Response } from "express";
+import { urlencoded, type Request, type Response } from "express";
 import express from "express";
-const app = express();
-import { Signup, Login, Resources, Restaurant, Booking, getBooking, refresh, cancelBooking, MyRestaurant , ResourcesByRestaurant, ownerBooking} from "./routes/router";
-import { url } from "inspector";
-
-
-authRouter.use(urlencoded({ extended: true }));
-authRouter.use(express.json());
-
 import cors from "cors";
+import { Signup, Login, Resources, Restaurant, Booking, getBooking, refresh, cancelBooking, MyRestaurant, ResourcesByRestaurant, ownerBooking } from "./routes/router";
 
 const allowedOrigins = [
   "http://localhost:5173",
   "https://dine-slot-six.vercel.app",
 ];
 
-app.use(cors({
+authRouter.use(cors({
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
@@ -27,8 +20,8 @@ app.use(cors({
   credentials: true,
 }));
 
-app.set("trust proxy", 1);
-
+authRouter.use(urlencoded({ extended: true }));
+authRouter.use(express.json());
 
 authRouter.get("/verify",(req:Request, res:Response)=>{
     res.send("working")
