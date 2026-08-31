@@ -16,7 +16,7 @@ const allowedOrigins = [
   "https://dine-slot-six.vercel.app",
 ];
 
-authRouter.use(cors({
+app.use(cors({
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
