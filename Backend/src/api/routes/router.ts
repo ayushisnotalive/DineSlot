@@ -19,6 +19,28 @@ import { getMyRestaurant } from "../../modules/restaurant/restaurant.mine";
 import { getResourcesByRestaurant } from "../../modules/resources/resources.get";
 import { getOwnerBookings } from "../../modules/Booking/get.owner.booking";
 
+const app = express();
+import cors from "cors";
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://dine-slot-six.vercel.app",
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+}));
+
+app.set("trust proxy", 1);
+
+
 
 const authRouter = Router();
 
