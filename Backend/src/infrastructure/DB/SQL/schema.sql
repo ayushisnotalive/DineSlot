@@ -2,12 +2,22 @@ CREATE SCHEMA IF NOT EXISTS booking;
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-CREATE TYPE booking.booking_status AS ENUM (
-    'pending',
-    'confirmed',
-    'cancelled'
-);
-
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_type
+        WHERE typname = 'booking_status'
+        AND typnamespace = 'booking'::regnamespace
+    ) THEN
+        CREATE TYPE booking.booking_status AS ENUM (
+            'pending',
+            'confirmed',
+            'cancelled'
+        );
+    END IF;
+END
+$$;
 CREATE TABLE IF NOT EXISTS booking.users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL,
@@ -59,3 +69,22 @@ ON booking.bookings(resource_id, start_time);
 
 CREATE INDEX IF NOT EXISTS idx_booking_user
 ON booking.bookings(user_id);
+
+CREATE TABLE IF NOT EXISTS booking.refresh_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    user_id UUID NOT NULL
+        REFERENCES booking.users(id)
+        ON DELETE CASCADE,
+
+    token_hash TEXT NOT NULL UNIQUE,
+
+    expires_at TIMESTAMPTZ NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    revoked_at TIMESTAMPTZ,
+
+    replaced_by UUID
+        REFERENCES booking.refresh_sessions(id)
+);

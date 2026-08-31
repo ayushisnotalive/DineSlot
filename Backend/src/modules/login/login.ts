@@ -2,7 +2,8 @@ import type { Request, Response } from "express";
 import { db } from "../../infrastructure/DB/db";
 import { verifyPassword } from "../../infrastructure/configs/hashing";
 import { loginSchema } from "../../infrastructure/services/auth.validator";
-import { generateAccessToken, generateRefreshToken } from "../../infrastructure/services/jwt";
+import { generateAccessToken } from "../../infrastructure/services/jwt";
+import { generateRefreshToken, hashRefreshToken } from "../../infrastructure/services/refreshToken";
 
 export const login = async (req: Request, res: Response) => {
     try {
@@ -41,7 +42,18 @@ export const login = async (req: Request, res: Response) => {
         }
 
         const accessToken = generateAccessToken(user.id);
-        const refreshToken = generateRefreshToken(user.id);
+        const refreshToken = generateRefreshToken();
+        const refreshTokenHash = hashRefreshToken(refreshToken);
+
+        await db.query(
+            `
+            INSERT INTO booking.refresh_sessions
+                (user_id, token_hash, expires_at)
+            VALUES
+                ($1, $2, NOW() + INTERVAL '7 days')
+            `,
+            [user.id, refreshTokenHash]
+        );
 
         res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
@@ -62,7 +74,6 @@ export const login = async (req: Request, res: Response) => {
         return res.status(200).json({
             success: true,
             message: "User logged in successfully.",
-            accessToken,
             user: {
                 id: user.id,
                 name: user.name,
