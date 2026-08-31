@@ -14,11 +14,29 @@ export const ProtectedRoute = ({
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                await api.post("/auth/refresh");
+                // First, try the existing access token
                 await api.get("/auth/me");
 
                 setAuthStatus("authenticated");
-            } catch {
+            } catch (error: any) {
+
+                // Access token may be expired
+                if (error.response?.status === 401) {
+                    try {
+                        // Use refresh token to get a new access token
+                        await api.post("/auth/refresh");
+
+                        // Verify the new access token
+                        await api.get("/auth/me");
+
+                        setAuthStatus("authenticated");
+                        return;
+                    } catch {
+                        setAuthStatus("unauthenticated");
+                        return;
+                    }
+                }
+
                 setAuthStatus("unauthenticated");
             }
         };
