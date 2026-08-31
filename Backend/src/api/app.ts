@@ -11,7 +11,7 @@ authRouter.use(express.json());
 import cors from "cors";
 
 const allowedOrigins = [
-  "dine-slot-h9e1291dr-ayushz-20s-projects.vercel.app",
+  "http://dine-slot-six.vercel.app",
 ];
 
 authRouter.use(cors({
