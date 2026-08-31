@@ -11,7 +11,7 @@ authRouter.use(express.json());
 import cors from "cors";
 
 const allowedOrigins = [
-  "http://localhost:5173",
+  "dine-slot-h9e1291dr-ayushz-20s-projects.vercel.app",
 ];
 
 authRouter.use(cors({
