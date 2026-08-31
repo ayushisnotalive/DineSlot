@@ -86,7 +86,6 @@ export const signup = async (req: Request, res: Response) => {
 
         // Access token cookie
         res.cookie("accessToken", accessToken, {
-            httpOnly: true,
             secure: true,
             sameSite: "none",
             maxAge: 15 * 60 * 1000,
@@ -95,7 +94,6 @@ export const signup = async (req: Request, res: Response) => {
 
         // Refresh token cookie
         res.cookie("refreshToken", refreshToken, {
-            httpOnly: true,
             secure: true,
             sameSite: "none",
             maxAge: 7 * 24 * 60 * 60 * 1000,
