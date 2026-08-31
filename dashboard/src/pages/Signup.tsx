@@ -22,7 +22,7 @@ export default function Signup() {
 
     try {
       const response = await api.post('/auth/signup', { name, email, mobile_no: mobileNo, password });
-      setAccessToken(response.data.accessToken);
+      setAccessToken(response.data.success);
       navigate('/dashboard');
     } catch (err) {
       if (isAxiosError(err) && err.response) {
