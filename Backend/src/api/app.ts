@@ -1,12 +1,30 @@
 import authRouter from "./routes/router";
 import { urlencoded, type Request, type Response } from "express";
 import express from "express";
+import cors from "cors";
 import { Signup, Login, Resources, 
   Restaurant, Booking, getBooking, refresh, 
   cancelBooking, MyRestaurant, ResourcesByRestaurant, 
   ownerBooking, authMe } from "./routes/router";
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://dine-slot-six.vercel.app",
+];
 
+authRouter.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+}));
+
+authRouter.use(urlencoded({ extended: true }));
+authRouter.use(express.json());
 
 authRouter.get("/verify",(req:Request, res:Response)=>{
     res.send("working")
