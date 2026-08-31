@@ -65,6 +65,7 @@ export const signup = async (req: Request, res: Response) => {
             secure: true,
             sameSite: "none",
             maxAge: 15 * 60 * 1000,
+            
         });
 
         res.cookie("csrfToken", csrfToken, {
@@ -77,6 +78,7 @@ export const signup = async (req: Request, res: Response) => {
         return res.status(201).json({
             success: true,
             message: "User registered successfully.",
+            accessToken,
             user,
         });
 
