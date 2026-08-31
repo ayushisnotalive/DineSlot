@@ -16,7 +16,7 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      await api.post('/auth/login', { email, password });
+      await api.post('/api/auth/login', { email, password });
       navigate('/dashboard');
     } catch (err) {
       if (isAxiosError(err) && err.response) {
