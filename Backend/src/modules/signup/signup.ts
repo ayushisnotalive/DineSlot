@@ -4,7 +4,7 @@ import { db } from "../../infrastructure/DB/db";
 import { hashedPassword } from "../../infrastructure/configs/hashing";
 import { env } from "../../infrastructure/configs/env";
 import { registerSchema } from "../../infrastructure/services/auth.validator";
-import { generateAccessToken } from "../../infrastructure/services/jwt";
+import { generateAccessToken, generateRefreshToken } from "../../infrastructure/services/jwt";
 
 export const signup = async (req: Request, res: Response) => {
     try {
@@ -17,7 +17,7 @@ export const signup = async (req: Request, res: Response) => {
             });
         }
 
-        const { name, email,mobile_no, password } = parsed.data;
+        const { name, email, mobile_no, password } = parsed.data;
 
         const existingUser = await db.query(
             `SELECT id FROM booking.users WHERE email = $1`,
@@ -54,25 +54,16 @@ export const signup = async (req: Request, res: Response) => {
 
         const user = result.rows[0];
 
-        console.log({ name, email, mobile_no, passwordHash });
-
         const accessToken = generateAccessToken(user.id);
+        const refreshToken = generateRefreshToken(user.id);
 
-        const csrfToken = crypto.randomBytes(32).toString("hex");
-
-        res.cookie("accessToken", accessToken, {
+        // refresh token stays as httpOnly cookie — same-site risk exists too,
+        // but access token (used far more often) moves to the response body
+        res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
             secure: true,
             sameSite: "none",
-            maxAge: 15 * 60 * 1000,
-            
-        });
-
-        res.cookie("csrfToken", csrfToken, {
-            httpOnly: false,
-            secure: true,
-            sameSite: "none",
-            maxAge: 15 * 60 * 1000,
+            maxAge: 7 * 24 * 60 * 60 * 1000,
         });
 
         return res.status(201).json({
@@ -82,16 +73,11 @@ export const signup = async (req: Request, res: Response) => {
             user,
         });
 
-        
-
     } catch (err) {
         console.error(err);
-
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
         });
     }
 };
-
-

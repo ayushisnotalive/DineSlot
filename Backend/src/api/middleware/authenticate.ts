@@ -7,7 +7,8 @@ export interface AuthRequest extends Request {
 }
 
 export const authenticate = (req: AuthRequest, res: Response, next: NextFunction) => {
-  const token = req.cookies?.accessToken;
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
 
   if (!token) {
     res.status(401).json({ error: "Not authenticated" });
