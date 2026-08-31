@@ -1,6 +1,7 @@
 import authRouter from "./routes/router";
 import { urlencoded, type Request,type Response } from "express";
 import express from "express";
+const app = express();
 import { Signup, Login, Resources, Restaurant, Booking, getBooking, refresh, cancelBooking, MyRestaurant , ResourcesByRestaurant, ownerBooking} from "./routes/router";
 import { url } from "inspector";
 
@@ -25,6 +26,8 @@ authRouter.use(cors({
   },
   credentials: true,
 }));
+
+app.set("trust proxy", 1);
 
 
 authRouter.get("/verify",(req:Request, res:Response)=>{
