@@ -30,7 +30,7 @@ authRouter.get("/", (_, res: Response) => {
 authRouter.post("/api/auth/signup", validate(registerSchema), signup);
 authRouter.post("/api/auth/login", validate(loginSchema), login);
 authRouter.post("/api/auth/refresh", refreshRotation);
-authRouter.get("/api/auth/me", authenticate, Me);
+authRouter.get("/api/auth/me", Me);
 
 // restaurant
 authRouter.post("/api/restaurant/createRestaurant", authenticate, CreateRestaurant);
