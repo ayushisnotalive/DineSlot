@@ -17,7 +17,7 @@ export const signup = async (req: Request, res: Response) => {
             });
         }
 
-        const { name, email, mobile_no, password } = parsed.data;
+        const { name, email,mobile_no, password } = parsed.data;
 
         const existingUser = await db.query(
             `SELECT id FROM booking.users WHERE email = $1`,
