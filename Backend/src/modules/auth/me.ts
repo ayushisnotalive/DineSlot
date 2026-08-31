@@ -5,7 +5,7 @@ import { db } from "../../infrastructure/DB/db";
 export const Me = async (req: AuthRequest, res: Response) => {
     try {
         const result = await db.query(
-            `SELECT id, name, email, mobile_no FROM booking.users WHERE id = $1`,
+            `SELECT id , name , email , mobile_no FROM booking.users WHERE id = $1`,
             [req.userId]
         );
 
