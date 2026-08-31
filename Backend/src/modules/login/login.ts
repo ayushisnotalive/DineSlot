@@ -51,6 +51,14 @@ export const login = async (req: Request, res: Response) => {
             path: "/",
         });
 
+        res.cookie("accessToken", accessToken, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "none" as const,
+            maxAge: 15 * 60 * 1000,
+            path: "/",
+        });
+
         return res.status(200).json({
             success: true,
             message: "User logged in successfully.",
