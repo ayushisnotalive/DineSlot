@@ -4,12 +4,29 @@ import { connectDB } from "../infrastructure/DB/db";
 import { authRouter } from "./app";
 import cookieParser from "cookie-parser"
 import helmet from "helmet"
+import cors from "cors";
+import { urlencoded } from "express";
 
 const app = express();
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://dine-slot-six.vercel.app",
+];
 
+authRouter.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+}));
+
+authRouter.use(urlencoded({ extended: true }));
+authRouter.use(express.json());
 
 app.use(cookieParser());
 

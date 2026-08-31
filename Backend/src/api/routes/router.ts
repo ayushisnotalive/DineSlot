@@ -18,6 +18,7 @@ import { cancelMyBooking } from "../../modules/Booking/booking.cancel";
 import { getMyRestaurant } from "../../modules/restaurant/restaurant.mine";
 import { getResourcesByRestaurant } from "../../modules/resources/resources.get";
 import { getOwnerBookings } from "../../modules/Booking/get.owner.booking";
+import { Me } from "../../modules/auth/me";
 
 const app = express();
 import cors from "cors";
@@ -57,6 +58,7 @@ authRouter.get("/",(_,res:Response)=>{
 })
 
 export const refresh = authRouter.post("/refresh",refreshRotation);
+export const authMe = authRouter.get("/me", authenticate, Me);
 
 export const  Signup = authRouter.post("/signup",validate(registerSchema),signup);
 export const Login = authRouter.post("/login",validate(loginSchema),login);
