@@ -18,7 +18,7 @@ export default function Signup() {
     setIsLoading(true);
 
     try {
-      await api.post('/api/auth/signup', { name, email, mobile_no: mobileNo, password });
+      await api.post('/auth/signup', { name, email, mobile_no: mobileNo, password });
       navigate('/dashboard');
     } catch (err) {
       if (isAxiosError(err) && err.response) {
