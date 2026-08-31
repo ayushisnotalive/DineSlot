@@ -5,7 +5,6 @@ import { signup } from "../../modules/signup/signup";
 import { login } from "../../modules/login/login";
 import { authenticate } from "../middleware/authenticate";
 // import { verifyCsrf } from "../middleware/csrf";
-import { loginLimiter,registerLimiter, refreshLimiter  } from "../middleware/rate_limit";
 import { loginSchema, registerSchema } from "../../infrastructure/services/auth.validator";
 import { validate } from "../middleware/validator";
 import { refreshRotation } from "../../modules/auth/refresh";
@@ -37,8 +36,8 @@ authRouter.get("/",(_,res:Response)=>{
 
 export const refresh = authRouter.post("/refresh",refreshRotation);
 
-export const  Signup = authRouter.post("/signup", registerLimiter,validate(registerSchema),signup);
-export const Login = authRouter.post("/login",loginLimiter,validate(loginSchema),login);
+export const  Signup = authRouter.post("/signup",validate(registerSchema),signup);
+export const Login = authRouter.post("/login",validate(loginSchema),login);
 
 export const Restaurant = authRouter.post("/createRestaurant",authenticate, CreateRestaurant);
 export const Resources = authRouter.post("/createResources", authenticate,CreateResources);
