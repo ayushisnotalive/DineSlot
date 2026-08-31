@@ -20,9 +20,9 @@ export const refreshRotation = async(req:Request, res:Response)=>{
         res.cookie("refreshToken", newRefreshToken, {
         httpOnly: true,
         secure: true,
-        sameSite: "none",
+        sameSite: "none" as const,
         maxAge: 7 * 24 * 60 * 60 * 1000,
-        path: "/api/auth/refresh",
+        path: "/",
         });
 
         const newAccessToken = generateAccessToken(decoded.userId);
@@ -32,6 +32,7 @@ export const refreshRotation = async(req:Request, res:Response)=>{
         secure: true,
         sameSite: "none",
         maxAge: 15 * 60 * 1000,
+        path: "/",
         
 
 

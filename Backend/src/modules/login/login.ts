@@ -48,7 +48,7 @@ export const login = async (req: Request, res: Response) => {
             secure: true,
             sameSite: "none" as const,
             maxAge: 7 * 24 * 60 * 60 * 1000,
-            path: "/api/auth/refresh",
+            path: "/",
         });
 
         return res.status(200).json({
