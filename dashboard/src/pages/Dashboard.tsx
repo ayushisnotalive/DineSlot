@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 export default function Dashboard() {
   return (
     <div className="flex min-h-screen bg-charcoal-deep font-body-md text-body-md text-on-surface selection:bg-terracotta-glow selection:text-white">
