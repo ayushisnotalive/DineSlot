@@ -10,7 +10,7 @@ export const Me = async(req:AuthRequest, res:Response)=>{
         console.log("DEBUG - req.userId:", req.userId);
 
         const result = await db.query(
-            `SELECT id, name, email FROM booking.users where id=$1`,
+            `SELECT id, name, email FROM booking.users where id = $1`,
             [req.userId]
         );
 
