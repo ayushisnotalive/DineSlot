@@ -18,7 +18,7 @@ export const signup = async (req: Request, res: Response) => {
                 errors: parsed.error.flatten(),
             });
         }
-
+ 
         const { name, email, mobile_no, password } = parsed.data;
 
         const existingUser = await db.query(
