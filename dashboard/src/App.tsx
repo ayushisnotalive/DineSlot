@@ -3,6 +3,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import { ProtectedRoute } from './components/protectedRoutes';
+import Restaunrant from './pages/restaurants.mine';
 // import { ProtectedRoute } from './components/protectedRoutes';
 
 function App() {
@@ -16,8 +17,12 @@ function App() {
           <ProtectedRoute>
             <Dashboard/>
           </ProtectedRoute>
-        
           } />
+          <Route path="/restaurants" element={
+            <ProtectedRoute>
+              <Restaunrant/>
+            </ProtectedRoute>
+          }/>
       </Routes>
     </BrowserRouter>
   );
