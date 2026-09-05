@@ -17,6 +17,8 @@ import { getResourcesByRestaurant } from "../../modules/resources/resources.get"
 import { getOwnerBookings } from "../../modules/Booking/get.owner.booking";
 import { Me } from "../../modules/auth/me";
 import {logout} from "../../modules/auth/logout";
+import {getAllRestaurants} from "../../modules/restaurant/restaurant.getAll";
+import { getPublicResources } from "../../modules/resources/resource.getAll";
 
 const authRouter = Router();
 
@@ -36,10 +38,11 @@ authRouter.post("/api/auth/logout", logout);
 // restaurant
 authRouter.post("/api/restaurant/createRestaurant", authenticate, CreateRestaurant);
 authRouter.get("/api/restaurants/mine", authenticate, getMyRestaurant);
-
+authRouter.get("/api/restaurants", getAllRestaurants);
 // resources
 authRouter.post("/api/resources/createResources", authenticate, CreateResources);
 authRouter.get("/api/restaurants/resources", authenticate, getResourcesByRestaurant);
+authRouter.get("/api/public/resources", getPublicResources);
 
 // bookings
 authRouter.post("/api/booking/createBookings", authenticate, CreateBooking);

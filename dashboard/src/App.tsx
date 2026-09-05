@@ -6,12 +6,14 @@ import { ProtectedRoute } from './components/protectedRoutes';
 import Restaunrant from './pages/restaurants.mine';
 import RestaurantTables from './pages/RestaurantTables';
 import OwnerBookings from './pages/OwnerBookings';
+import BrowseRestaurants from './pages/BrowseRestaurants';
 // import { ProtectedRoute } from './components/protectedRoutes';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/" element={<BrowseRestaurants />} />
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
