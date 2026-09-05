@@ -20,14 +20,35 @@ export default function OwnerBookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchBookings = () => {
     api
       .get("/bookings/owner", { headers: { Authorization: `Bearer ${accessToken}` } })
       .then((res) => setBookings(res.data.bookings))
       .catch(() => setError("Failed to load bookings."))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchBookings();
   }, [accessToken]);
+
+  const handleCancel = async (bookingId: string) => {
+    setCancellingId(bookingId);
+    try {
+      await api.patch(
+        `/cancel/bookings/${bookingId}/cancel`,
+        {},
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      fetchBookings(); // refresh list to show updated status
+    } catch (err) {
+      setError("Failed to cancel booking.");
+    } finally {
+      setCancellingId(null);
+    }
+  };
 
   if (loading) return <div>Loading...</div>;
 
@@ -45,6 +66,7 @@ export default function OwnerBookings() {
             <th className="py-2">Customer</th>
             <th className="py-2">Time</th>
             <th className="py-2">Status</th>
+            <th className="py-2">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -58,6 +80,17 @@ export default function OwnerBookings() {
                 {new Date(b.end_time).toLocaleTimeString()}
               </td>
               <td className="py-3 capitalize">{b.status}</td>
+              <td className="py-3">
+                {b.status !== "cancelled" && (
+                  <button
+                    onClick={() => handleCancel(b.id)}
+                    disabled={cancellingId === b.id}
+                    className="text-red-600 text-sm hover:underline disabled:opacity-50"
+                  >
+                    {cancellingId === b.id ? "Cancelling..." : "Cancel"}
+                  </button>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
