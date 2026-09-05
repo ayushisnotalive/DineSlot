@@ -5,7 +5,7 @@ import { db } from "../../infrastructure/DB/db";
 export const getMyRestaurant = async(req:AuthRequest, res:Response)=>{
     try{
         const result = await db.query(
-            `SELECT id, name, adress, created_at
+            `SELECT id, name, address, created_at
             FROM booking.restaurants
             WHERE owner_id = $1
             ORDER BY created_at DESC`,
