@@ -4,6 +4,8 @@ import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import { ProtectedRoute } from './components/protectedRoutes';
 import Restaunrant from './pages/restaurants.mine';
+import RestaurantTables from './pages/RestaurantTables';
+import OwnerBookings from './pages/OwnerBookings';
 // import { ProtectedRoute } from './components/protectedRoutes';
 
 function App() {
@@ -23,7 +25,22 @@ function App() {
               <Restaunrant/>
             </ProtectedRoute>
           }/>
-      </Routes>
+          <Route
+            path="/restaurants/:restaurantId/tables"
+            element={
+            <ProtectedRoute>
+              <RestaurantTables />
+          </ProtectedRoute>
+          }/>
+          <Route
+            path="/bookings"
+            element={
+              <ProtectedRoute>
+                <OwnerBookings />
+          </ProtectedRoute>
+            }
+          />
+        </Routes>
     </BrowserRouter>
   );
 }
