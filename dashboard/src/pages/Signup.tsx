@@ -2,10 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { isAxiosError } from 'axios';
-import { useAuth} from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { useSearchParams } from 'react-router-dom';
-
-
 
 export default function Signup() {
   const [name, setName] = useState('');
@@ -27,7 +25,10 @@ export default function Signup() {
     try {
       const response = await api.post('/auth/signup', { name, email, mobile_no: mobileNo, password, role });
       setAccessToken(response.data.accessToken);
-      navigate('/dashboard');
+
+      const signedUpRole = response.data.user.role;
+      if (signedUpRole === 'owner') navigate('/dashboard');
+      else navigate('/browse');
     } catch (err) {
       if (isAxiosError(err) && err.response) {
         setError(err.response.data.message || 'An error occurred during signup');
@@ -70,7 +71,7 @@ export default function Signup() {
                 placeholder="Jane Doe"
               />
             </div>
-            
+
             <div>
               <label htmlFor="mobile" className="block text-sm font-medium text-gray-700 mb-2">Mobile Number</label>
               <input

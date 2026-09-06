@@ -95,3 +95,11 @@ CREATE TABLE IF NOT EXISTS booking.refresh_sessions (
     replaced_by UUID
         REFERENCES booking.refresh_sessions(id)
 );
+
+-- One-time admin seed. Safe to re-run: does nothing if the account
+-- doesn't exist yet, or already has this role.
+-- If the account doesn't exist yet, sign up with this email first,
+-- then re-run this statement.
+UPDATE booking.users
+SET role = 'admin'
+WHERE email = 'testdeploy1@gmail.com';
