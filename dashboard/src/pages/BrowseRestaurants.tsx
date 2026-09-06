@@ -18,7 +18,7 @@ export default function BrowseRestaurants() {
 
   useEffect(() => {
     api
-      .get("/public/restaurants")
+      .get("/restaurants")
       .then((res) => setRestaurants(res.data.restaurants))
       .catch(() => setError("Failed to load restaurants."))
       .finally(() => setLoading(false));
