@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../api';
 import { isAxiosError } from 'axios';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +10,8 @@ export default function Login() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname;
   const [searchParams] = useSearchParams();
   const asRole = searchParams.get('as') || 'customer';
 
@@ -30,9 +32,15 @@ export default function Login() {
       });
       const role = meRes.data.user.role;
 
-      if (role === 'admin') navigate('/admin');
-      else if (role === 'owner') navigate('/dashboard');
-      else navigate('/browse');
+      if (from) {
+        navigate(from, { replace: true });
+      } else if (role === 'admin') {
+        navigate('/admin');
+      } else if (role === 'owner') {
+        navigate('/dashboard');
+      } else {
+        navigate('/browse');
+      }
     } catch (err) {
       if (isAxiosError(err) && err.response) {
         setError(err.response.data.message || 'Invalid email or password');

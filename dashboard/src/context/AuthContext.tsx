@@ -1,5 +1,4 @@
-
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 
 interface AuthContextType {
   accessToken: string | null;
@@ -9,7 +8,18 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [accessToken, setAccessTokenState] = useState<string | null>(() => {
+    return localStorage.getItem("accessToken");
+  });
+
+  const setAccessToken = (token: string | null) => {
+    if (token) {
+      localStorage.setItem("accessToken", token);
+    } else {
+      localStorage.removeItem("accessToken");
+    }
+    setAccessTokenState(token);
+  };
 
   return (
     <AuthContext.Provider value={{ accessToken, setAccessToken }}>

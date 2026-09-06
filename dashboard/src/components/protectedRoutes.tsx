@@ -1,6 +1,6 @@
 // src/components/ProtectedRoute.tsx
 import { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
 
@@ -11,6 +11,7 @@ const API_URL = import.meta.env.PROD
 export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { accessToken } = useAuth();
   const [authStatus, setAuthStatus] = useState<"loading" | "authenticated" | "unauthenticated">("loading");
+  const location = useLocation();
 
   useEffect(() => {
     if (!accessToken) {
@@ -31,7 +32,7 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (authStatus === "unauthenticated") {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
   return <>{children}</>;
