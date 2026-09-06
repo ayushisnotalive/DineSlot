@@ -38,7 +38,7 @@ export default function BookTable() {
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );
       setSuccess(true);
-      setTimeout(() => navigate("/"), 2000);
+      setTimeout(() => navigate("/browse"), 2000);
     } catch (err) {
       if (isAxiosError(err) && err.response) {
         setError(err.response.data.message || "Failed to book table.");

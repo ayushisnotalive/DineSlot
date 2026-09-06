@@ -69,6 +69,12 @@ export default function RestaurantTables() {
 
       {error && <p className="text-red-600 mb-4">{error}</p>}
 
+      <div className="mb-4">
+        <Link to="/restaurants" className="text-[var(--color-terracotta-600)] hover:underline text-sm">
+          ← Back to Restaurants
+        </Link>
+      </div>
+
       <form onSubmit={handleCreate} className="mb-8 space-y-3 bg-gray-50 p-6 rounded-lg">
         <input
           type="text"
@@ -109,9 +115,6 @@ export default function RestaurantTables() {
           <div key={r.id} className="p-4 border border-gray-200 rounded-lg">
             <h2 className="font-medium">{r.name}</h2>
             <p className="text-gray-500 text-sm">{r.type_of_table} · {r.booking_class}</p>
-            <Link to={`/restaurants/${r.id}/tables`} className="text-[var(--color-terracotta-600)] text-sm">
-                View Tables →
-            </Link>
           </div>
         ))}
       </div>

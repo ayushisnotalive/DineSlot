@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import api from "../api";
 import { useAuth } from "../context/AuthContext";
 
@@ -105,7 +106,10 @@ export default function Restaunrant(){
         {restaurants.map((r) => (
           <div key={r.id} className="p-4 border border-gray-200 rounded-lg">
             <h2 className="font-medium">{r.name}</h2>
-            <p className="text-gray-500 text-sm">{r.address}</p>
+            <p className="text-gray-500 text-sm mb-2">{r.address}</p>
+            <Link to={`/restaurants/${r.id}/tables`} className="text-[var(--color-terracotta-600)] text-sm hover:underline">
+                View Tables →
+            </Link>
           </div>
         ))}
       </div>
