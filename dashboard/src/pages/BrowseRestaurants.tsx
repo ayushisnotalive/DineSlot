@@ -1,7 +1,7 @@
-// src/pages/BrowseRestaurants.tsx
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api";
+import { useAuth } from "../context/AuthContext";
 
 interface Restaurant {
   id: string;
@@ -10,9 +10,11 @@ interface Restaurant {
 }
 
 export default function BrowseRestaurants() {
+  const { accessToken } = useAuth();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [role, setRole] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -22,30 +24,61 @@ export default function BrowseRestaurants() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (!accessToken) {
+      setRole(null);
+      return;
+    }
+    api
+      .get("/auth/me", { headers: { Authorization: `Bearer ${accessToken}` } })
+      .then((res) => setRole(res.data.user.role))
+      .catch(() => setRole(null));
+  }, [accessToken]);
+
   if (loading) return <div>Loading...</div>;
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
-      <h1 className="text-3xl font-serif mb-6">Find a Table</h1>
-      {error && <p className="text-red-600 mb-4">{error}</p>}
-      <div className="space-y-3">
-        {restaurants.map((r) => (
-          <Link
-            key={r.id}
-            to={`/browse/${r.id}`}
-            className="block p-4 border border-gray-200 rounded-lg hover:border-[var(--color-terracotta-400)] transition-colors"
-          >
-            <h2 className="font-medium">{r.name}</h2>
-            <p className="text-gray-500 text-sm">{r.address}</p>
-          </Link>
-        ))}
+    <div className="min-h-screen bg-[#fbf9f6]">
+      <nav className="bg-white border-b border-gray-100 shadow-sm px-6 py-4">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div className="text-2xl font-serif text-gray-900 tracking-tight">DineSlot</div>
+
+          <div className="flex items-center gap-6">
+            {role === "admin" && (
+              <Link to="/admin" className="text-sm font-medium text-gray-600 hover:text-[var(--color-terracotta-600)]">
+                Admin Panel
+              </Link>
+            )}
+            {role === "owner" && (
+              <Link to="/dashboard" className="text-sm font-medium text-gray-600 hover:text-[var(--color-terracotta-600)]">
+                Owner Dashboard
+              </Link>
+            )}
+            {!accessToken && (
+              <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-[var(--color-terracotta-600)]">
+                Sign in
+              </Link>
+            )}
+          </div>
+        </div>
+      </nav>
+
+      <div className="p-8 max-w-3xl mx-auto">
+        <h1 className="text-3xl font-serif mb-6">Find a Table</h1>
+        {error && <p className="text-red-600 mb-4">{error}</p>}
+        <div className="space-y-3">
+          {restaurants.map((r) => (
+            <Link
+              key={r.id}
+              to={`/browse/${r.id}`}
+              className="block p-4 border border-gray-200 rounded-lg hover:border-[var(--color-terracotta-400)] transition-colors"
+            >
+              <h2 className="font-medium">{r.name}</h2>
+              <p className="text-gray-500 text-sm">{r.address}</p>
+            </Link>
+          ))}
+        </div>
       </div>
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-serif">Find a Table</h1>
-        <Link to="/login" className="text-sm text-[var(--color-terracotta-600)]">
-            Restaurant owner? Sign in
-        </Link>
-       </div>
     </div>
   );
 }

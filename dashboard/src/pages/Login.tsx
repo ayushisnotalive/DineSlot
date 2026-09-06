@@ -13,7 +13,6 @@ export default function Login() {
 
   const { setAccessToken } = useAuth();
 
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -21,8 +20,18 @@ export default function Login() {
 
     try {
       const response = await api.post('/auth/login', { email, password });
-      setAccessToken(response.data.accessToken);
-      navigate('/dashboard');
+      const token = response.data.accessToken;
+      setAccessToken(token);
+
+      // fetch role right after login to route correctly
+      const meRes = await api.get('/auth/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const role = meRes.data.user.role;
+
+      if (role === 'admin') navigate('/admin');
+      else if (role === 'owner') navigate('/dashboard');
+      else navigate('/');
     } catch (err) {
       if (isAxiosError(err) && err.response) {
         setError(err.response.data.message || 'Invalid email or password');
