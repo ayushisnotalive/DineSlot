@@ -8,6 +8,7 @@ import RestaurantTables from './pages/RestaurantTables';
 import OwnerBookings from './pages/OwnerBookings';
 import BrowseRestaurants from './pages/BrowseRestaurants';
 import BrowseRestaurantTables from './pages/BrowseRestaurantTables';
+import BookTable from './pages/BookTables';
 
 function App() {
   return (
@@ -51,6 +52,14 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+            path="/book/:resourceId"
+            element={
+              <ProtectedRoute>
+                <BookTable />
+              </ProtectedRoute>
+  }
+/>
       </Routes>
     </BrowserRouter>
   );
