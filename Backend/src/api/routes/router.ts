@@ -19,6 +19,8 @@ import { Me } from "../../modules/auth/me";
 import {logout} from "../../modules/auth/logout";
 import {getAllRestaurants} from "../../modules/restaurant/restaurant.getAll";
 import { getPublicResources } from "../../modules/resources/resource.getAll";
+import { requireRole } from "../middleware/requireRole";
+import { promoteToOwner } from "../../modules/admin/promote";
 
 const authRouter = Router();
 
@@ -49,5 +51,9 @@ authRouter.post("/api/booking/createBookings", authenticate, CreateBooking);
 authRouter.get("/api/Booking/getbookings", authenticate, getMyBookings);
 authRouter.patch("/api/cancel/bookings/:id/cancel", authenticate, cancelMyBooking);
 authRouter.get("/api/bookings/owner", authenticate, getOwnerBookings);
+
+// role based users implementation
+authRouter.post("/api/admin/promote", authenticate, requireRole(["admin"]), promoteToOwner);
+authRouter.post("/api/restaurant/createRestaurant", authenticate, requireRole(["owner"]), CreateRestaurant);
 
 export default authRouter;

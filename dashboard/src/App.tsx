@@ -9,6 +9,7 @@ import OwnerBookings from './pages/OwnerBookings';
 import BrowseRestaurants from './pages/BrowseRestaurants';
 import BrowseRestaurantTables from './pages/BrowseRestaurantTables';
 import BookTable from './pages/BookTables';
+import AdminPromote from './pages/AdminPromote';
 
 function App() {
   return (
@@ -60,6 +61,15 @@ function App() {
               </ProtectedRoute>
   }
 />
+        <Route
+          path="/admin/promote"
+          element={
+            <ProtectedRoute>
+              <AdminPromote />
+            </ProtectedRoute>
+          }
+        />
+
       </Routes>
     </BrowserRouter>
   );

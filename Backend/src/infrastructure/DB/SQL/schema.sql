@@ -24,8 +24,12 @@ CREATE TABLE IF NOT EXISTS booking.users (
     email VARCHAR(255) UNIQUE NOT NULL,
     mobile_no VARCHAR(20),
     password_hash TEXT NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'customer'
+        CHECK (role IN ('customer', 'owner', 'admin')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+UPDATE booking.users SET role = 'admin' WHERE email = 'testdeploy1@gmail.com';
 
 CREATE TABLE IF NOT EXISTS booking.restaurants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
