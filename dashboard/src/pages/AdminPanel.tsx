@@ -1,17 +1,17 @@
-import { useState } from "react";
-import "../index.css"
+import { useEffect, useMemo, useState } from "react";
+import api from "../api";
+import { useAuth } from "../context/AuthContext";
+import "./index.css";
 
 type Role = "customer" | "owner" | "admin";
 
-interface Stakeholder {
+interface AdminUser {
   id: string;
   name: string;
-  initials: string;
-  joined: string;
   email: string;
   role: Role;
-  lastActive: string;
-  activeNow?: boolean;
+  joined?: string;
+  lastActive?: string;
 }
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -20,72 +20,14 @@ const ROLE_LABELS: Record<Role, string> = {
   admin: "Platform Admin",
 };
 
-const INITIAL_STAKEHOLDERS: Stakeholder[] = [
-  {
-    id: "usr_94821",
-    name: "Alain Ducasse",
-    initials: "AD",
-    joined: "Joined Oct 12, 2024",
-    email: "atelier.ducasse@paris-gastronomy.fr",
-    role: "owner",
-    lastActive: "12m ago",
-  },
-  {
-    id: "usr_10284",
-    name: "Eleanor Vance",
-    initials: "EV",
-    joined: "Joined Jan 15, 2025",
-    email: "e.vance@sommelier-guild.org",
-    role: "customer",
-    lastActive: "Just now",
-  },
-  {
-    id: "usr_00391",
-    name: "Chef Kenjiro Sato",
-    initials: "KS",
-    joined: "Joined Nov 03, 2024",
-    email: "ginza.shinwa@omakase-vault.jp",
-    role: "owner",
-    lastActive: "1h ago",
-  },
-  {
-    id: "usr_00012",
-    name: "Henrietta Sterling",
-    initials: "HS",
-    joined: "Joined Aug 20, 2024",
-    email: "h.sterling@dineslot-ops.internal",
-    role: "admin",
-    lastActive: "Active Now",
-    activeNow: true,
-  },
-  {
-    id: "usr_44910",
-    name: "Marcus Aurelius Thorne",
-    initials: "MT",
-    joined: "Joined Dec 02, 2024",
-    email: "m.thorne@mayfair-invest.co.uk",
-    role: "customer",
-    lastActive: "3h ago",
-  },
-  {
-    id: "usr_77215",
-    name: "Camille Claudel",
-    initials: "CC",
-    joined: "Joined Jan 04, 2025",
-    email: "cellar@larpege-haute.com",
-    role: "owner",
-    lastActive: "5m ago",
-  },
-  {
-    id: "usr_88301",
-    name: "Devon Scott",
-    initials: "DS",
-    joined: "Joined Sep 11, 2024",
-    email: "d.scott@apex-cloud.io",
-    role: "admin",
-    lastActive: "42m ago",
-  },
-];
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase())
+    .join("");
+}
 
 function RoleBadge({ role }: { role: Role }) {
   const cls =
@@ -121,36 +63,75 @@ function CaretIcon() {
 }
 
 export default function AdminPanel() {
-  const [stakeholders, setStakeholders] = useState<Stakeholder[]>(INITIAL_STAKEHOLDERS);
+  const { accessToken } = useAuth();
+
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | Role>("all");
   const [sortBy, setSortBy] = useState("name");
 
-  const handleRoleChange = (id: string, role: Role) => {
-    setStakeholders((prev) => prev.map((s) => (s.id === id ? { ...s, role } : s)));
+  const fetchUsers = () => {
+    setError("");
+    api
+      .get("/admin/users", { headers: { Authorization: `Bearer ${accessToken}` } })
+      .then((res) => setUsers(res.data.users))
+      .catch(() => setError("Failed to load users."))
+      .finally(() => setLoading(false));
   };
 
-  const filtered = stakeholders
-    .filter((s) => (roleFilter === "all" ? true : s.role === roleFilter))
-    .filter((s) => {
-      const q = search.toLowerCase();
-      return (
-        s.name.toLowerCase().includes(q) ||
-        s.email.toLowerCase().includes(q) ||
-        s.id.toLowerCase().includes(q)
+  useEffect(() => {
+    fetchUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken]);
+
+  const handleRoleChange = async (userId: string, role: Role) => {
+    setUpdatingId(userId);
+    setError("");
+    // optimistic update so the UI feels instant
+    const previous = users;
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
+    try {
+      await api.patch(
+        "/admin/users/role",
+        { userId, role },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
       );
-    })
-    .sort((a, b) => {
-      if (sortBy === "role") return a.role.localeCompare(b.role);
-      return a.name.localeCompare(b.name);
-    });
-
-  const counts = {
-    total: stakeholders.length,
-    customer: stakeholders.filter((s) => s.role === "customer").length,
-    owner: stakeholders.filter((s) => s.role === "owner").length,
-    admin: stakeholders.filter((s) => s.role === "admin").length,
+      fetchUsers();
+    } catch (err) {
+      setError("Failed to update role.");
+      setUsers(previous); // roll back on failure
+    } finally {
+      setUpdatingId(null);
+    }
   };
+
+  const counts = useMemo(
+    () => ({
+      total: users.length,
+      customer: users.filter((u) => u.role === "customer").length,
+      owner: users.filter((u) => u.role === "owner").length,
+      admin: users.filter((u) => u.role === "admin").length,
+    }),
+    [users]
+  );
+
+  const filtered = useMemo(() => {
+    return users
+      .filter((u) => (roleFilter === "all" ? true : u.role === roleFilter))
+      .filter((u) => {
+        const q = search.toLowerCase();
+        return (
+          u.name.toLowerCase().includes(q) ||
+          u.email.toLowerCase().includes(q) ||
+          u.id.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => (sortBy === "role" ? a.role.localeCompare(b.role) : a.name.localeCompare(b.name)));
+  }, [users, search, roleFilter, sortBy]);
 
   return (
     <div className="ds-app">
@@ -160,7 +141,7 @@ export default function AdminPanel() {
           <div className="ds-topbar-left">
             <span className="ds-badge-mfa">MFA Verified</span>
             <span className="ds-topbar-cluster">
-              DineSlot Central Ops Engine &bull; Cluster Alpha-NYC &bull; Session ID: #DS-88204
+              DineSlot Central Ops Engine &bull; Cluster Alpha-NYC
             </span>
           </div>
           <div className="ds-topbar-right">
@@ -207,7 +188,6 @@ export default function AdminPanel() {
 
       {/* Main Container */}
       <main className="ds-main">
-        {/* Page Breadcrumb & Title Section */}
         <div className="ds-page-head">
           <div>
             <div className="ds-eyebrow">
@@ -223,7 +203,7 @@ export default function AdminPanel() {
           </div>
 
           <div className="ds-page-actions">
-            <button className="ds-btn ds-btn-secondary">
+            <button className="ds-btn ds-btn-secondary" onClick={fetchUsers} disabled={loading}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16" />
               </svg>
@@ -235,6 +215,22 @@ export default function AdminPanel() {
             </button>
           </div>
         </div>
+
+        {error && (
+          <div
+            style={{
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              color: "#b91c1c",
+              borderRadius: "0.75rem",
+              padding: "0.75rem 1rem",
+              fontSize: "0.8125rem",
+              marginBottom: "1.5rem",
+            }}
+          >
+            {error}
+          </div>
+        )}
 
         {/* Metrics Overview Strip */}
         <div className="ds-metrics-grid">
@@ -296,28 +292,16 @@ export default function AdminPanel() {
             </div>
 
             <div className="ds-role-pills">
-              <button
-                className={`ds-pill ${roleFilter === "all" ? "ds-pill-active" : ""}`}
-                onClick={() => setRoleFilter("all")}
-              >
+              <button className={`ds-pill ${roleFilter === "all" ? "ds-pill-active" : ""}`} onClick={() => setRoleFilter("all")}>
                 All Roles
               </button>
-              <button
-                className={`ds-pill ${roleFilter === "customer" ? "ds-pill-active" : ""}`}
-                onClick={() => setRoleFilter("customer")}
-              >
+              <button className={`ds-pill ${roleFilter === "customer" ? "ds-pill-active" : ""}`} onClick={() => setRoleFilter("customer")}>
                 Customer
               </button>
-              <button
-                className={`ds-pill ${roleFilter === "owner" ? "ds-pill-active" : ""}`}
-                onClick={() => setRoleFilter("owner")}
-              >
+              <button className={`ds-pill ${roleFilter === "owner" ? "ds-pill-active" : ""}`} onClick={() => setRoleFilter("owner")}>
                 Owner
               </button>
-              <button
-                className={`ds-pill ${roleFilter === "admin" ? "ds-pill-active" : ""}`}
-                onClick={() => setRoleFilter("admin")}
-              >
+              <button className={`ds-pill ${roleFilter === "admin" ? "ds-pill-active" : ""}`} onClick={() => setRoleFilter("admin")}>
                 Admin
               </button>
             </div>
@@ -328,79 +312,87 @@ export default function AdminPanel() {
             <select className="ds-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
               <option value="name">Name (A-Z)</option>
               <option value="role">Role Hierarchy</option>
-              <option value="activity">Activity Volume</option>
             </select>
           </div>
         </div>
 
-        {/* Elevated Editorial Table Container */}
+        {/* Table */}
         <div className="ds-table-card">
           <div className="ds-table-scroll">
-            <table className="ds-table">
-              <thead>
-                <tr>
-                  <th>Stakeholder</th>
-                  <th>Contact &amp; ID</th>
-                  <th>Current Privilege</th>
-                  <th>Change Role</th>
-                  <th className="ds-th-right">Audit Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((s) => (
-                  <tr key={s.id}>
-                    <td>
-                      <div className="ds-stakeholder">
-                        <RowAvatar initials={s.initials} role={s.role} />
-                        <div>
-                          <div className="ds-row-name">{s.name}</div>
-                          <div className="ds-row-joined">{s.joined}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="ds-row-email">{s.email}</div>
-                      <div className="ds-row-id">ID: {s.id}</div>
-                    </td>
-                    <td>
-                      <RoleBadge role={s.role} />
-                    </td>
-                    <td>
-                      <div className="ds-role-select-wrap">
-                        <select
-                          className="ds-role-select"
-                          value={s.role}
-                          onChange={(e) => handleRoleChange(s.id, e.target.value as Role)}
-                        >
-                          <option value="customer">Customer</option>
-                          <option value="owner">Restaurant Owner</option>
-                          <option value="admin">Platform Admin</option>
-                        </select>
-                        <div className="ds-role-caret">
-                          <CaretIcon />
-                        </div>
-                      </div>
-                    </td>
-                    <td className="ds-td-right">
-                      <div className="ds-audit-status">
-                        <span
-                          className="ds-audit-dot"
-                          style={s.activeNow ? { animation: "ds-pulse 2s infinite" } : undefined}
-                        />
-                        <span>{s.lastActive}</span>
-                      </div>
-                    </td>
+            {loading ? (
+              <div style={{ padding: "3rem", textAlign: "center", color: "var(--stone-500)", fontSize: "0.875rem" }}>
+                Loading stakeholders...
+              </div>
+            ) : (
+              <table className="ds-table">
+                <thead>
+                  <tr>
+                    <th>Stakeholder</th>
+                    <th>Contact &amp; ID</th>
+                    <th>Current Privilege</th>
+                    <th>Change Role</th>
+                    <th className="ds-th-right">Audit Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filtered.map((u) => (
+                    <tr key={u.id}>
+                      <td>
+                        <div className="ds-stakeholder">
+                          <RowAvatar initials={getInitials(u.name)} role={u.role} />
+                          <div>
+                            <div className="ds-row-name">{u.name}</div>
+                            {u.joined && <div className="ds-row-joined">{u.joined}</div>}
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="ds-row-email">{u.email}</div>
+                        <div className="ds-row-id">ID: {u.id}</div>
+                      </td>
+                      <td>
+                        <RoleBadge role={u.role} />
+                      </td>
+                      <td>
+                        <div className="ds-role-select-wrap">
+                          <select
+                            className="ds-role-select"
+                            value={u.role}
+                            disabled={updatingId === u.id}
+                            onChange={(e) => handleRoleChange(u.id, e.target.value as Role)}
+                          >
+                            <option value="customer">Customer</option>
+                            <option value="owner">Restaurant Owner</option>
+                            <option value="admin">Platform Admin</option>
+                          </select>
+                          <div className="ds-role-caret">
+                            <CaretIcon />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="ds-td-right">
+                        <div className="ds-audit-status">
+                          <span className="ds-audit-dot" />
+                          <span>{updatingId === u.id ? "Updating..." : u.lastActive ?? "—"}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={5} style={{ padding: "2rem", textAlign: "center", color: "var(--stone-400)" }}>
+                        No stakeholders match your search.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
 
-          {/* Table Footer / Summary Bar */}
           <div className="ds-table-footer">
             <div>
-              Displaying <strong>{filtered.length}</strong> of <strong>{stakeholders.length}</strong>{" "}
-              registered accounts
+              Displaying <strong>{filtered.length}</strong> of <strong>{users.length}</strong> registered accounts
             </div>
             <div className="ds-footer-meta">
               <span>🔒 Encrypted TLS 1.3 Transmission</span>
