@@ -1,76 +1,9 @@
 import React, { useState, useRef } from "react";
 import { Link } from "react-router-dom";
+import "./index.css";
 
-// Custom CSS styles for smooth floating keyframes, glassmorphism, and editorial micro-interactions
-const inlineStyles = `
-@keyframes floatGentle {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-10px) rotate(0.8deg); }
-}
-
-@keyframes floatReverse {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(12px) rotate(-1deg); }
-}
-
-@keyframes pulseGlow {
-  0%, 100% { opacity: 0.4; transform: scale(1); }
-  50% { opacity: 0.85; transform: scale(1.08); }
-}
-
-@keyframes orbitClockwise {
-  from { transform: rotate(0deg) translateX(110px) rotate(0deg); }
-  to { transform: rotate(360deg) translateX(110px) rotate(-360deg); }
-}
-
-@keyframes orbitCounter {
-  from { transform: rotate(360deg) translateX(145px) rotate(-360deg); }
-  to { transform: rotate(0deg) translateX(145px) rotate(0deg); }
-}
-
-@keyframes marquee {
-  0% { transform: translateX(0%); }
-  100% { transform: translateX(-50%); }
-}
-
-.animate-float-slow {
-  animation: floatGentle 6s ease-in-out infinite;
-}
-
-.animate-float-rev {
-  animation: floatReverse 7s ease-in-out infinite;
-}
-
-.animate-pulse-glow {
-  animation: pulseGlow 4s ease-in-out infinite;
-}
-
-.animate-orbit-1 {
-  animation: orbitClockwise 22s linear infinite;
-}
-
-.animate-orbit-2 {
-  animation: orbitCounter 28s linear infinite;
-}
-
-.animate-marquee {
-  display: flex;
-  width: 200%;
-  animation: marquee 25s linear infinite;
-}
-
-.glass-card {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
-
-.perspective-1000 {
-  perspective: 1000px;
-}
-`;
-
-export default function DineSlotLanding() {
+export default function LandingChoice() {
+  const [activeTab, setActiveTab] = useState<"diners" | "venues" | "admin">("diners");
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const heroRef = useRef<HTMLDivElement>(null);
 
@@ -89,8 +22,6 @@ export default function DineSlotLanding() {
 
   return (
     <div className="min-h-screen bg-[#fbf9f6] text-stone-800 font-sans antialiased selection:bg-[#bf5038]/20 selection:text-[#9e3e29]">
-      <style>{inlineStyles}</style>
-
       {/* Top Banner Notice */}
       <div className="bg-[#1c1917] text-stone-300 text-xs py-2 px-4 tracking-wide border-b border-stone-800">
         <div className="max-w-7xl mx-auto flex items-center justify-between">

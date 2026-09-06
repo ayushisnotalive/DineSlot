@@ -11,7 +11,7 @@ import BrowseRestaurantTables from './pages/BrowseRestaurantTables';
 import BookTable from './pages/BookTables';
 import AdminPromote from './pages/AdminPromote';
 import AdminPanel from './pages/AdminPanel';
-import LandingChoice from './pages/LandingChoice';
+import LandingChoice from './pages/LandingPage';
 
 function App() {
   return (
