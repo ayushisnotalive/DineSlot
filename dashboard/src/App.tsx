@@ -11,14 +11,15 @@ import BrowseRestaurantTables from './pages/BrowseRestaurantTables';
 import BookTable from './pages/BookTables';
 import AdminPromote from './pages/AdminPromote';
 import AdminPanel from './pages/AdminPanel';
+import LandingChoice from './pages/LandingChoice';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<BrowseRestaurants />} />
+        <Route path="/" element={<LandingChoice />} />
+        <Route path="/browse" element={<BrowseRestaurants />} />
         <Route path="/browse/:restaurantId" element={<BrowseRestaurantTables />} />
-
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
 

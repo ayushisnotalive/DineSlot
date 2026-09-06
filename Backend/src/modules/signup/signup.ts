@@ -19,7 +19,7 @@ export const signup = async (req: Request, res: Response) => {
             });
         }
  
-        const { name, email, mobile_no, password } = parsed.data;
+        const { name, email, mobile_no, password, role } = parsed.data;
 
         const existingUser = await db.query(
             `SELECT id FROM booking.users WHERE email = $1`,
@@ -43,17 +43,19 @@ export const signup = async (req: Request, res: Response) => {
                 name,
                 email,
                 mobile_no,
-                password_hash
+                password_hash,
+                role
             )
-            VALUES ($1, $2, $3, $4)
+            VALUES ($1, $2, $3, $4, $5)
             RETURNING
                 id,
                 name,
                 email,
                 mobile_no,
+                role,
                 created_at;
             `,
-            [name, email, mobile_no, passwordHash]
+            [name, email, mobile_no, passwordHash, role]
         );
 
         const user = result.rows[0];
@@ -116,4 +118,3 @@ export const signup = async (req: Request, res: Response) => {
         });
     }
 };
-

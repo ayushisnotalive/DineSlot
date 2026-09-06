@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { isAxiosError } from 'axios';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +10,8 @@ export default function Login() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const asRole = searchParams.get('as') || 'customer';
 
   const { setAccessToken } = useAuth();
 
@@ -23,7 +25,6 @@ export default function Login() {
       const token = response.data.accessToken;
       setAccessToken(token);
 
-      // fetch role right after login to route correctly
       const meRes = await api.get('/auth/me', {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -31,7 +32,7 @@ export default function Login() {
 
       if (role === 'admin') navigate('/admin');
       else if (role === 'owner') navigate('/dashboard');
-      else navigate('/');
+      else navigate('/browse');
     } catch (err) {
       if (isAxiosError(err) && err.response) {
         setError(err.response.data.message || 'Invalid email or password');
@@ -45,18 +46,15 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-10 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
+      <div className="w-full max-w-md bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-10">
         <div className="text-center mb-10">
-          <h1 className="text-4xl font-serif text-gray-900 mb-2 tracking-tight">Welcome back</h1>
-          <p className="text-gray-500 text-sm tracking-wide">Sign in to manage your dining experience</p>
+          <h1 className="text-4xl font-serif text-gray-900 mb-2 tracking-tight capitalize">{asRole} Sign In</h1>
+          <p className="text-gray-500 text-sm tracking-wide">Sign in to continue</p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 text-red-700 text-sm rounded-lg border border-red-100 flex items-center">
-            <svg className="w-5 h-5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path>
-            </svg>
-            <span>{error}</span>
+          <div className="mb-6 p-4 bg-red-50 text-red-700 text-sm rounded-lg border border-red-100">
+            {error}
           </div>
         )}
 
@@ -69,8 +67,7 @@ export default function Login() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[var(--color-terracotta-500)] focus:border-transparent transition-all duration-200"
-              placeholder="owner@restaurant.com"
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50"
             />
           </div>
 
@@ -82,26 +79,27 @@ export default function Login() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[var(--color-terracotta-500)] focus:border-transparent transition-all duration-200"
-              placeholder="••••••••"
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50"
             />
           </div>
 
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-4 px-4 bg-[var(--color-terracotta-600)] hover:bg-[var(--color-terracotta-700)] text-white text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:translate-y-0"
+            className="w-full py-4 px-4 bg-[var(--color-terracotta-600)] text-white text-sm font-medium rounded-lg"
           >
             {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
-        <p className="mt-8 text-center text-sm text-gray-500">
-          Don't have an account?{' '}
-          <Link to="/signup" className="text-[var(--color-terracotta-600)] font-medium hover:text-[var(--color-terracotta-700)] transition-colors duration-200 underline underline-offset-4 decoration-transparent hover:decoration-[var(--color-terracotta-700)]">
-            Create one here
-          </Link>
-        </p>
+        {asRole !== 'admin' && (
+          <p className="mt-8 text-center text-sm text-gray-500">
+            Don't have an account?{' '}
+            <Link to={`/signup?as=${asRole}`} className="text-[var(--color-terracotta-600)] font-medium underline">
+              Create one here
+            </Link>
+          </p>
+        )}
       </div>
     </div>
   );

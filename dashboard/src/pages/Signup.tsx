@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { isAxiosError } from 'axios';
-import { useAuth
+import { useAuth} from '../context/AuthContext';
+import { useSearchParams } from 'react-router-dom';
 
- } from '../context/AuthContext';
+
+
 export default function Signup() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -14,6 +16,8 @@ export default function Signup() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { setAccessToken } = useAuth();
+  const [searchParams] = useSearchParams();
+  const role = searchParams.get('as') === 'owner' ? 'owner' : 'customer';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,7 +25,7 @@ export default function Signup() {
     setIsLoading(true);
 
     try {
-      const response = await api.post('/auth/signup', { name, email, mobile_no: mobileNo, password });
+      const response = await api.post('/auth/signup', { name, email, mobile_no: mobileNo, password, role });
       setAccessToken(response.data.accessToken);
       navigate('/dashboard');
     } catch (err) {
