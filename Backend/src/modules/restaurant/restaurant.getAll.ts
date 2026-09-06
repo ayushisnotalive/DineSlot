@@ -1,7 +1,6 @@
 import type { Request, Response } from "express";
 import { db } from "../../infrastructure/DB/db";
 
-
 export const getAllRestaurants = async (req: Request, res: Response) => {
   try {
     const result = await db.query(
