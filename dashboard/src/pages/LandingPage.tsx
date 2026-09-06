@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import "./index.css";
 
 export default function LandingChoice() {
-  const [activeTab, setActiveTab] = useState<"diners" | "venues" | "admin">("diners");
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const heroRef = useRef<HTMLDivElement>(null);
 
