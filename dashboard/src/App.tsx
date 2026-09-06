@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
@@ -7,42 +7,51 @@ import Restaunrant from './pages/restaurants.mine';
 import RestaurantTables from './pages/RestaurantTables';
 import OwnerBookings from './pages/OwnerBookings';
 import BrowseRestaurants from './pages/BrowseRestaurants';
-// import { ProtectedRoute } from './components/protectedRoutes';
+import BrowseRestaurantTables from './pages/BrowseRestaurantTables';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<BrowseRestaurants />} />
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/browse/:restaurantId" element={<BrowseRestaurantTables />} />
+
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <Dashboard/>
-          </ProtectedRoute>
-          } />
-          <Route path="/restaurants" element={
+
+        <Route
+          path="/dashboard"
+          element={
             <ProtectedRoute>
-              <Restaunrant/>
+              <Dashboard />
             </ProtectedRoute>
-          }/>
-          <Route
-            path="/restaurants/:restaurantId/tables"
-            element={
+          }
+        />
+        <Route
+          path="/restaurants"
+          element={
+            <ProtectedRoute>
+              <Restaunrant />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/restaurants/:restaurantId/tables"
+          element={
             <ProtectedRoute>
               <RestaurantTables />
-          </ProtectedRoute>
-          }/>
-          <Route
-            path="/bookings"
-            element={
-              <ProtectedRoute>
-                <OwnerBookings />
-          </ProtectedRoute>
-            }
-          />
-        </Routes>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/bookings"
+          element={
+            <ProtectedRoute>
+              <OwnerBookings />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
     </BrowserRouter>
   );
 }
