@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../api";
 import { useAuth } from "../context/AuthContext";
-import "./index.css";
+import "../index.css";
 
 type Role = "customer" | "owner" | "admin";
 
