@@ -10,6 +10,7 @@ import BrowseRestaurants from './pages/BrowseRestaurants';
 import BrowseRestaurantTables from './pages/BrowseRestaurantTables';
 import BookTable from './pages/BookTables';
 import AdminPromote from './pages/AdminPromote';
+import AdminPanel from './pages/AdminPanel';
 
 function App() {
   return (
@@ -69,7 +70,14 @@ function App() {
             </ProtectedRoute>
           }
         />
-
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <AdminPanel />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );
