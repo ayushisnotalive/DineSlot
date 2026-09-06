@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { Link } from "react-router-dom";
-import "./index.css";
+import "../index.css"
 
 export default function LandingChoice() {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
