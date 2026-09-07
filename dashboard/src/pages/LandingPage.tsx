@@ -217,7 +217,7 @@ export default function LandingChoice() {
                   <span className="text-stone-200 font-medium">Live Precision Floor Orchestration</span>
                 </div>
                 <div className="hidden sm:flex items-center gap-2 bg-stone-900/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-stone-800 text-stone-300">
-                  <span>hover your cursor &amp; enjoying hovering on me?</span>
+                  <span>Hover your cursor on me &amp; see the magic</span>
                 </div>
               </div>
             </div>
