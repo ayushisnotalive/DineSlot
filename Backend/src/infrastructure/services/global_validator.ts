@@ -20,3 +20,4 @@ export const createBookingSchema = z.object({
   type_of_table: z.string().min(1),
   booking_class: z.string().min(1),
 });
+

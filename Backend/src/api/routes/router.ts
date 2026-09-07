@@ -23,6 +23,7 @@ import { requireRole } from "../middleware/requireRole";
 import { promoteToOwner } from "../../modules/admin/promote";
 import { listAllUsers } from "../../modules/admin/users.list";
 import { setUserRole } from "../../modules/admin/users.setRole";
+import { rateLimiter } from "../middleware/rateLimiter";
 
 
 const authRouter = Router();
@@ -35,8 +36,8 @@ authRouter.get("/", (_, res: Response) => {
 });
 
 // auth
-authRouter.post("/api/auth/signup", validate(registerSchema), signup);
-authRouter.post("/api/auth/login", validate(loginSchema), login);
+authRouter.post("/api/auth/signup",rateLimiter({ windowSeconds: 60, maxRequests: 3 }), validate(registerSchema), signup);
+authRouter.post("/api/auth/login",rateLimiter({ windowSeconds: 60, maxRequests: 5 }), validate(loginSchema), login);
 authRouter.post("/api/auth/refresh", refreshRotation);
 authRouter.get("/api/auth/me", authenticate, Me);
 authRouter.post("/api/auth/logout", logout);
