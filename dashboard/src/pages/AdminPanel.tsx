@@ -69,6 +69,7 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [deletingEmail, setDeletingEmail] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | Role>("all");
@@ -109,6 +110,31 @@ export default function AdminPanel() {
     }
   };
 
+ const handleDelete = async (email: string) => { 
+
+    const confirmed = window.confirm( `Are you sure you want to delete the user with email:\n\n${email}\n\nThis action cannot be undone.` );
+    if (!confirmed) {
+       return;
+       }
+       
+    setDeletingEmail(email); 
+    setError(""); // optimistic update so the UI feels instant
+    const previous = users;
+    setUsers((prev) => prev.filter((u) => u.email !== email));
+    try 
+    { 
+      await api.delete("/auth/deleteUser",{
+         data: { email }, headers: { Authorization: `Bearer ${accessToken}`, 
+        }, 
+      }); 
+      fetchUsers();
+     } 
+    catch (err) { 
+      setError("Failed to delete user.");
+      setUsers(previous); // roll back on failure
+   } 
+   finally { setDeletingEmail(null); } };
+
   const counts = useMemo(
     () => ({
       total: users.length,
@@ -133,6 +159,7 @@ export default function AdminPanel() {
       .sort((a, b) => (sortBy === "role" ? a.role.localeCompare(b.role) : a.name.localeCompare(b.name)));
   }, [users, search, roleFilter, sortBy]);
 
+  
   return (
     <div className="ds-app">
       {/* Top Security Infrastructure Strip */}
@@ -140,17 +167,23 @@ export default function AdminPanel() {
         <div className="ds-topbar-inner">
           <div className="ds-topbar-left">
             <span className="ds-badge-mfa">MFA Verified</span>
+
             <span className="ds-topbar-cluster">
               DineSlot Central Ops Engine &bull; Cluster Alpha-NYC
             </span>
           </div>
+
           <div className="ds-topbar-right">
             <span className="ds-status-dot">
               <span className="ds-dot ds-dot-pulse" />
               Gateway Healthy
             </span>
+
             <span>|</span>
-            <span className="ds-clearance">Clearance: Master Platform Admin</span>
+
+            <span className="ds-clearance">
+              Clearance: Master Platform Admin
+            </span>
           </div>
         </div>
       </div>
@@ -160,27 +193,45 @@ export default function AdminPanel() {
         <div className="ds-header-inner">
           <div className="ds-header-left">
             <div className="ds-logo-icon">
-              <svg viewBox="0 0 24 24" fill="none" strokeWidth={2}>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                strokeWidth={2}
+              >
                 <path d="M12 2a5 5 0 0 1 5 5v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5z" />
                 <circle cx="12" cy="14" r="2" />
               </svg>
             </div>
+
             <div>
               <div className="ds-brand-row">
                 <span className="ds-brand">
                   Dine<span className="ds-brand-accent">Slot</span>
                 </span>
-                <span className="ds-version-tag">Console v2.4</span>
+
+                <span className="ds-version-tag">
+                  Console v2.4
+                </span>
               </div>
-              <p className="ds-subtitle">Identity &amp; Multi-Tenant Access Governance</p>
+
+              <p className="ds-subtitle">
+                Identity &amp; Multi-Tenant Access Governance
+              </p>
             </div>
           </div>
 
           <div className="ds-header-right">
             <div className="ds-identity-pill">
-              <span className="ds-dot" style={{ background: "var(--emerald-500)" }} />
-              <span>{counts.total} Enrolled Gastronomy Identities</span>
+              <span
+                className="ds-dot"
+                style={{ background: "var(--emerald-500)" }}
+              />
+
+              <span>
+                {counts.total} Enrolled Gastronomy Identities
+              </span>
             </div>
+
             <div className="ds-avatar">ADM</div>
           </div>
         </div>
@@ -193,22 +244,40 @@ export default function AdminPanel() {
             <div className="ds-eyebrow">
               <span>Ecosystem Governance</span>
               <span>&bull;</span>
-              <span className="ds-eyebrow-sub">Privilege Delegation</span>
+              <span className="ds-eyebrow-sub">
+                Privilege Delegation
+              </span>
             </div>
-            <h1 className="ds-title">User Access &amp; Role Management</h1>
+
+            <h1 className="ds-title">
+              User Access &amp; Role Management
+            </h1>
+
             <p className="ds-page-desc">
-              Audit credentialed stakeholders across diners, Michelin venue ateliers, and platform
-              operations. Change permissions and roles in real-time with instant sync.
+              Audit credentialed stakeholders across diners, Michelin venue
+              ateliers, and platform operations. Change permissions and roles
+              in real-time with instant sync.
             </p>
           </div>
 
           <div className="ds-page-actions">
-            <button className="ds-btn ds-btn-secondary" onClick={fetchUsers} disabled={loading}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <button
+              className="ds-btn ds-btn-secondary"
+              onClick={fetchUsers}
+              disabled={loading}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
                 <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16" />
               </svg>
+
               Refresh Directory
             </button>
+
             <button className="ds-btn ds-btn-primary">
               <span className="ds-btn-plus">+</span>
               Provision Stakeholder
@@ -239,7 +308,11 @@ export default function AdminPanel() {
               <span>Total Registry</span>
               <span className="ds-metric-head-tag">All Nodes</span>
             </div>
-            <div className="ds-metric-value">{counts.total}</div>
+
+            <div className="ds-metric-value">
+              {counts.total}
+            </div>
+
             <div className="ds-metric-foot ds-metric-foot-green">
               <span className="ds-dot-sm" />
               100% Identity verified
@@ -251,8 +324,14 @@ export default function AdminPanel() {
               <span>Diners (Customers)</span>
               <span>🍽️</span>
             </div>
-            <div className="ds-metric-value">{counts.customer}</div>
-            <div className="ds-metric-foot">Direct reserve tier</div>
+
+            <div className="ds-metric-value">
+              {counts.customer}
+            </div>
+
+            <div className="ds-metric-foot">
+              Direct reserve tier
+            </div>
           </div>
 
           <div className="ds-metric-card">
@@ -260,8 +339,14 @@ export default function AdminPanel() {
               <span>Venue Ateliers (Owners)</span>
               <span>🏪</span>
             </div>
-            <div className="ds-metric-value">{counts.owner}</div>
-            <div className="ds-metric-foot ds-metric-foot-amber">Floor plan controllers</div>
+
+            <div className="ds-metric-value">
+              {counts.owner}
+            </div>
+
+            <div className="ds-metric-foot ds-metric-foot-amber">
+              Floor plan controllers
+            </div>
           </div>
 
           <div className="ds-metric-card">
@@ -269,8 +354,14 @@ export default function AdminPanel() {
               <span>Platform Admins</span>
               <span>⚙️</span>
             </div>
-            <div className="ds-metric-value">{counts.admin}</div>
-            <div className="ds-metric-foot">Root governance group</div>
+
+            <div className="ds-metric-value">
+              {counts.admin}
+            </div>
+
+            <div className="ds-metric-foot">
+              Root governance group
+            </div>
           </div>
         </div>
 
@@ -278,10 +369,17 @@ export default function AdminPanel() {
         <div className="ds-toolbar">
           <div className="ds-toolbar-left">
             <div className="ds-search-wrap">
-              <svg className="ds-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <svg
+                className="ds-search-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
                 <circle cx="11" cy="11" r="8" />
                 <path d="m21 21-4.3-4.3" />
               </svg>
+
               <input
                 type="text"
                 className="ds-search-input"
@@ -292,16 +390,39 @@ export default function AdminPanel() {
             </div>
 
             <div className="ds-role-pills">
-              <button className={`ds-pill ${roleFilter === "all" ? "ds-pill-active" : ""}`} onClick={() => setRoleFilter("all")}>
+              <button
+                className={`ds-pill ${
+                  roleFilter === "all" ? "ds-pill-active" : ""
+                }`}
+                onClick={() => setRoleFilter("all")}
+              >
                 All Roles
               </button>
-              <button className={`ds-pill ${roleFilter === "customer" ? "ds-pill-active" : ""}`} onClick={() => setRoleFilter("customer")}>
+
+              <button
+                className={`ds-pill ${
+                  roleFilter === "customer" ? "ds-pill-active" : ""
+                }`}
+                onClick={() => setRoleFilter("customer")}
+              >
                 Customer
               </button>
-              <button className={`ds-pill ${roleFilter === "owner" ? "ds-pill-active" : ""}`} onClick={() => setRoleFilter("owner")}>
+
+              <button
+                className={`ds-pill ${
+                  roleFilter === "owner" ? "ds-pill-active" : ""
+                }`}
+                onClick={() => setRoleFilter("owner")}
+              >
                 Owner
               </button>
-              <button className={`ds-pill ${roleFilter === "admin" ? "ds-pill-active" : ""}`} onClick={() => setRoleFilter("admin")}>
+
+              <button
+                className={`ds-pill ${
+                  roleFilter === "admin" ? "ds-pill-active" : ""
+                }`}
+                onClick={() => setRoleFilter("admin")}
+              >
                 Admin
               </button>
             </div>
@@ -309,7 +430,12 @@ export default function AdminPanel() {
 
           <div className="ds-sort">
             <span>Sort by:</span>
-            <select className="ds-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+
+            <select
+              className="ds-select"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+            >
               <option value="name">Name (A-Z)</option>
               <option value="role">Role Hierarchy</option>
             </select>
@@ -320,7 +446,14 @@ export default function AdminPanel() {
         <div className="ds-table-card">
           <div className="ds-table-scroll">
             {loading ? (
-              <div style={{ padding: "3rem", textAlign: "center", color: "var(--stone-500)", fontSize: "0.875rem" }}>
+              <div
+                style={{
+                  padding: "3rem",
+                  textAlign: "center",
+                  color: "var(--stone-500)",
+                  fontSize: "0.875rem",
+                }}
+              >
                 Loading stakeholders...
               </div>
             ) : (
@@ -331,56 +464,174 @@ export default function AdminPanel() {
                     <th>Contact &amp; ID</th>
                     <th>Current Privilege</th>
                     <th>Change Role</th>
-                    <th className="ds-th-right">Audit Status</th>
+                    <th className="ds-th-right">
+                      Audit Status
+                    </th>
+                    <th className="ds-th-right">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {filtered.map((u) => (
                     <tr key={u.id}>
                       <td>
                         <div className="ds-stakeholder">
-                          <RowAvatar initials={getInitials(u.name)} role={u.role} />
+                          <RowAvatar
+                            initials={getInitials(u.name)}
+                            role={u.role}
+                          />
+
                           <div>
-                            <div className="ds-row-name">{u.name}</div>
-                            {u.joined && <div className="ds-row-joined">{u.joined}</div>}
+                            <div className="ds-row-name">
+                              {u.name}
+                            </div>
+
+                            {u.joined && (
+                              <div className="ds-row-joined">
+                                {u.joined}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
+
                       <td>
-                        <div className="ds-row-email">{u.email}</div>
-                        <div className="ds-row-id">ID: {u.id}</div>
+                        <div className="ds-row-email">
+                          {u.email}
+                        </div>
+
+                        <div className="ds-row-id">
+                          ID: {u.id}
+                        </div>
                       </td>
+
                       <td>
                         <RoleBadge role={u.role} />
                       </td>
+
                       <td>
                         <div className="ds-role-select-wrap">
                           <select
                             className="ds-role-select"
                             value={u.role}
                             disabled={updatingId === u.id}
-                            onChange={(e) => handleRoleChange(u.id, e.target.value as Role)}
+                            onChange={(e) =>
+                              handleRoleChange(
+                                u.id,
+                                e.target.value as Role
+                              )
+                            }
                           >
-                            <option value="customer">Customer</option>
-                            <option value="owner">Restaurant Owner</option>
-                            <option value="admin">Platform Admin</option>
+                            <option value="customer">
+                              Customer
+                            </option>
+
+                            <option value="owner">
+                              Restaurant Owner
+                            </option>
+
+                            <option value="admin">
+                              Platform Admin
+                            </option>
                           </select>
+
                           <div className="ds-role-caret">
                             <CaretIcon />
                           </div>
                         </div>
                       </td>
+
                       <td className="ds-td-right">
                         <div className="ds-audit-status">
                           <span className="ds-audit-dot" />
-                          <span>{updatingId === u.id ? "Updating..." : u.lastActive ?? "—"}</span>
+
+                          <span>
+                            {updatingId === u.id
+                              ? "Updating..."
+                              : u.lastActive ?? "—"}
+                          </span>
                         </div>
+                      </td>
+
+                      {/* Delete Action */}
+                      <td className="ds-td-right">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleDelete(u.email)
+                          }
+                          disabled={
+                            deletingEmail === u.email ||
+                            updatingId === u.id
+                          }
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "0.4rem",
+                            padding: "0.45rem 0.75rem",
+                            border: "1px solid #fecaca",
+                            borderRadius: "0.5rem",
+                            background:
+                              deletingEmail === u.email
+                                ? "#fef2f2"
+                                : "#fff",
+                            color: "#dc2626",
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                            cursor:
+                              deletingEmail === u.email ||
+                              updatingId === u.id
+                                ? "not-allowed"
+                                : "pointer",
+                            opacity:
+                              deletingEmail === u.email ||
+                              updatingId === u.id
+                                ? 0.6
+                                : 1,
+                          }}
+                        >
+                          {deletingEmail === u.email ? (
+                            "Deleting..."
+                          ) : (
+                            <>
+                              <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M3 6h18" />
+                                <path d="M8 6V4h8v2" />
+                                <path d="M19 6l-1 14H6L5 6" />
+                                <path d="M10 11v5" />
+                                <path d="M14 11v5" />
+                              </svg>
+
+                              Delete
+                            </>
+                          )}
+                        </button>
                       </td>
                     </tr>
                   ))}
+
                   {filtered.length === 0 && (
                     <tr>
-                      <td colSpan={5} style={{ padding: "2rem", textAlign: "center", color: "var(--stone-400)" }}>
+                      <td
+                        colSpan={6}
+                        style={{
+                          padding: "2rem",
+                          textAlign: "center",
+                          color: "var(--stone-400)",
+                        }}
+                      >
                         No stakeholders match your search.
                       </td>
                     </tr>
@@ -392,12 +643,21 @@ export default function AdminPanel() {
 
           <div className="ds-table-footer">
             <div>
-              Displaying <strong>{filtered.length}</strong> of <strong>{users.length}</strong> registered accounts
+              Displaying <strong>{filtered.length}</strong>{" "}
+              of <strong>{users.length}</strong> registered
+              accounts
             </div>
+
             <div className="ds-footer-meta">
-              <span>🔒 Encrypted TLS 1.3 Transmission</span>
+              <span>
+                🔒 Encrypted TLS 1.3 Transmission
+              </span>
+
               <span>&bull;</span>
-              <span>Role sync verified via HMAC</span>
+
+              <span>
+                Role sync verified via HMAC
+              </span>
             </div>
           </div>
         </div>
@@ -406,16 +666,25 @@ export default function AdminPanel() {
         <div className="ds-callout">
           <div className="ds-callout-left">
             <div className="ds-callout-icon">🛡️</div>
+
             <div>
-              <h4 className="ds-callout-title">Governance Protocol Notice</h4>
+              <h4 className="ds-callout-title">
+                Governance Protocol Notice
+              </h4>
+
               <p className="ds-callout-text">
-                Elevating users to <strong>Platform Admin</strong> grants unconditional access to
-                POS credentials, floor engine layouts, and financial payouts. Changes are logged to
-                the immutable audit ledger.
+                Elevating users to{" "}
+                <strong>Platform Admin</strong> grants
+                unconditional access to POS credentials, floor
+                engine layouts, and financial payouts. Changes
+                are logged to the immutable audit ledger.
               </p>
             </div>
           </div>
-          <button className="ds-callout-link">View System Audit Logs &rarr;</button>
+
+          <button className="ds-callout-link">
+            View System Audit Logs &rarr;
+          </button>
         </div>
       </main>
 
@@ -424,12 +693,24 @@ export default function AdminPanel() {
         <div className="ds-footer-inner">
           <div className="ds-footer-brand">
             <strong>DineSlot</strong>
+
             <span>&bull; Operations Engine</span>
-            <span>&bull; &copy; 2025 DineSlot Haute Hospitality Inc.</span>
+
+            <span>
+              &bull; &copy; 2025 DineSlot Haute Hospitality
+              Inc.
+            </span>
           </div>
+
           <div className="ds-footer-right">
             <span className="ds-footer-status">
-              <span className="ds-dot" style={{ background: "var(--emerald-500)" }} />
+              <span
+                className="ds-dot"
+                style={{
+                  background: "var(--emerald-500)",
+                }}
+              />
+
               Global Gastronomic Network Nodes Active
             </span>
           </div>

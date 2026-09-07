@@ -24,6 +24,7 @@ import { promoteToOwner } from "../../modules/admin/promote";
 import { listAllUsers } from "../../modules/admin/users.list";
 import { setUserRole } from "../../modules/admin/users.setRole";
 import { rateLimiter } from "../middleware/rateLimiter";
+import { deleteUser } from "../../modules/admin/delete";
 
 
 const authRouter = Router();
@@ -41,6 +42,7 @@ authRouter.post("/api/auth/login",rateLimiter({ windowSeconds: 60, maxRequests: 
 authRouter.post("/api/auth/refresh", refreshRotation);
 authRouter.get("/api/auth/me", authenticate, Me);
 authRouter.post("/api/auth/logout", logout);
+
 // restaurant
 authRouter.post("/api/restaurant/createRestaurant", authenticate, CreateRestaurant);
 authRouter.get("/api/restaurants/mine", authenticate, getMyRestaurant);
@@ -61,5 +63,6 @@ authRouter.post("/api/admin/promote", authenticate, requireRole(["admin"]), prom
 authRouter.post("/api/restaurant/createRestaurant", authenticate, requireRole(["owner"]), CreateRestaurant);
 authRouter.get("/api/admin/users", authenticate, requireRole(["admin"]), listAllUsers);
 authRouter.patch("/api/admin/users/role", authenticate, requireRole(["admin"]), setUserRole);
+authRouter.delete("/api/auth/deleteUser",authenticate, requireRole(["admin"]),deleteUser)
 
 export default authRouter;

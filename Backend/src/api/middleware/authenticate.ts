@@ -4,6 +4,7 @@ import { env } from "../../infrastructure/configs/env";
 
 export interface AuthRequest extends Request {
   userId?: string;
+  role?: string; // Add role property to the AuthRequest interface
 }
 
 export const authenticate = (req: AuthRequest, res: Response, next: NextFunction) => {
