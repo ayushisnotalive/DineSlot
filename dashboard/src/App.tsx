@@ -11,8 +11,11 @@ import BrowseRestaurantTables from './pages/BrowseRestaurantTables';
 import BookTable from './pages/BookTables';
 import AdminPromote from './pages/AdminPromote';
 import AdminPanel from './pages/AdminPanel';
-import LandingChoice from './pages/LandingPage';
+import LandingChoice from './pages/LandingChoice';
 import MyBookings from './pages/MyBookings';
+import CustomerLogin from './pages/CustomerLogin';
+import OwnerLogin from './pages/OwnerLogin';
+import AdminLogin from './pages/AdminLogin';
 
 function App() {
   return (
@@ -21,7 +24,9 @@ function App() {
         <Route path="/" element={<LandingChoice />} />
         <Route path="/browse" element={<BrowseRestaurants />} />
         <Route path="/browse/:restaurantId" element={<BrowseRestaurantTables />} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/customer/login" element={<CustomerLogin />} />
+        <Route path="/owner/login" element={<OwnerLogin />} />
+        <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/signup" element={<Signup />} />
 
         <Route

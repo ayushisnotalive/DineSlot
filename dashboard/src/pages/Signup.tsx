@@ -34,7 +34,13 @@ export default function Signup() {
       });
 
       setAuth(response.data.accessToken, response.data.user);
-      navigate('/browse');
+      if (response.data.user.role === 'admin') {
+        navigate('/admin');
+      } else if (response.data.user.role === 'owner') {
+        navigate('/dashboard');
+      } else {
+        navigate('/browse');
+      }
     } catch (err) {
       if (isAxiosError(err) && err.response) {
         setError(err.response.data.message || 'An error occurred during signup');
