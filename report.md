@@ -21,8 +21,10 @@
 - [8. Recommended Target Architecture](#8-recommended-target-architecture)
 - [9. Suggested Test Matrix](#9-suggested-test-matrix)
 - [10. Expected Flow vs Current Flow](#10-expected-flow-vs-current-flow)
-- [11. Verification Notes](#11-verification-notes)
-- [12. Final Coverage Checklist](#12-final-coverage-checklist)
+- [11. Backend Endpoint vs Frontend Coverage](#11-backend-endpoint-vs-frontend-coverage)
+- [12. Frontend Page Integration Audit](#12-frontend-page-integration-audit)
+- [13. Verification Notes](#13-verification-notes)
+- [14. Final Coverage Checklist](#14-final-coverage-checklist)
 
 ## 1. Executive Summary
 
@@ -307,7 +309,7 @@ DineSlot/
 |           |-- BrowseRestaurants.tsx
 |           |-- BrowseRestaurantTables.tsx
 |           |-- Dashboard.tsx
-|           |-- LandingPage.tsx
+|           |-- LandingChoice.tsx
 |           |-- Login.tsx
 |           |-- MyBookings.tsx
 |           |-- OwnerBookings.tsx
@@ -430,7 +432,7 @@ DineSlot/
 
 | File | Working |
 |---|---|
-| `dashboard/src/pages/LandingPage.tsx` | Public landing/choice screen with navigation, promotional content, and interactive visual effects. |
+| `dashboard/src/pages/LandingChoice.tsx` | Public landing/choice screen with navigation, promotional content, and interactive visual effects. |
 | `dashboard/src/pages/Login.tsx` | Login form, access-token storage, role lookup, and role-based navigation after login. |
 | `dashboard/src/pages/Signup.tsx` | Signup form for customer/owner roles, access-token storage, and post-signup navigation. |
 | `dashboard/src/pages/MyBookings.tsx` | Customer booking-history screen showing pending/confirmed/cancelled status and allowing future pending/confirmed cancellations. |
@@ -941,7 +943,141 @@ Therefore the first required decision is to choose one canonical contract, then 
 
 **Final conclusion:** DineSlot is now substantially aligned with the expected restaurant booking product at the business-flow level. It is still not fully compatible with its own documented API/security contract because route names, token transport, CSRF/session invalidation, and operational guarantees around email delivery differ. The booking integrity and lifecycle model are materially stronger than in the previous audit.
 
-## 11. Verification Notes
+## 11. Backend Endpoint vs Frontend Coverage
+
+### 11.1 Coverage verdict
+
+**Almost every business endpoint has a frontend caller, but the frontend coverage is not fully complete or consistently wired.** The backend has 20 registered application endpoints plus the root response. All 20 have a frontend caller or frontend session mechanism. The root response is intentionally backend-only. Several covered endpoints still have route, role, navigation, or request-lifecycle issues that can prevent a complete user flow.
+
+### 11.2 Endpoint coverage matrix
+
+| Method | Backend endpoint | Handler purpose | Frontend caller or mechanism | Coverage | Current issue |
+|---|---|---|---|---|---|
+| GET | `/` | Root/health-style service response. | None. | Backend-only | Add a frontend-independent health check or monitor; no dashboard page is required. |
+| POST | `/api/auth/signup` | Create a customer account and issue tokens/session. | `Signup.tsx` via `api.post('/auth/signup')`. | Covered | Signup UI intentionally does not send role; owner promotion is separate. Duplicate-email database error mapping remains incomplete. |
+| POST | `/api/auth/login` | Verify credentials and issue access/refresh tokens. | `LoginForm.tsx`, used by `CustomerLogin.tsx`, `OwnerLogin.tsx`, and `AdminLogin.tsx`. | Covered | The selected login role is presentation/navigation only; the backend does not enforce that the requested login page role matches the account role. |
+| POST | `/api/auth/refresh` | Rotate refresh session and issue a new access token. | `api.ts` response interceptor and `AuthContext.tsx` session restore. | Covered | CSRF token issuance is not shown in the current backend, and refresh-session reuse detection/logout revocation remain incomplete. |
+| GET | `/api/auth/me` | Return the authenticated user's profile and role. | `LoginForm.tsx` after login and `AuthContext.tsx` after silent refresh. | Covered | The flow is duplicated instead of using one typed auth/session service. |
+| POST | `/api/auth/logout` | Clear access/refresh cookies. | `Dashboard.tsx`. | Partially covered | Customer/admin surfaces do not expose a logout action in the inspected pages; backend logout does not revoke the database refresh session, and `Dashboard` does not clear AuthContext state. |
+| POST | `/api/restaurant/createRestaurant` | Create an owner restaurant. | `restaurants.mine.tsx` via `api.post('/restaurant/createRestaurant')`. | Covered | Backend route is registered twice; opening hours accepted by backend are not submitted by the visible owner form. |
+| GET | `/api/restaurants/mine` | List restaurants owned by the current user. | `restaurants.mine.tsx` via `api.get('/restaurants/mine')`. | Covered | No pagination; owner route is authenticated but does not explicitly use `requireRole`. |
+| GET | `/api/restaurants` | Public restaurant list. | `BrowseRestaurants.tsx` via `api.get('/restaurants')`. | Covered | No pagination or query filtering. |
+| POST | `/api/resources/createResources` | Create a table/resource for an owned restaurant. | `RestaurantTables.tsx` via `api.post('/resources/createResources')`. | Covered | Endpoint name is non-REST but the current frontend path matches it. |
+| GET | `/api/restaurants/resources` | List resources belonging to an owned restaurant. | `RestaurantTables.tsx` via `api.get('/restaurants/resources?restaurant_id=...')`. | Covered | Query UUID validation and pagination are incomplete. |
+| GET | `/api/public/resources` | Public resources for one restaurant. | `BrowseRestaurantTables.tsx` via `api.get('/public/resources?restaurant_id=...')`. | Covered | Query UUID validation/unknown-restaurant handling and pagination should be strengthened. |
+| POST | `/api/booking/createBookings` | Create a pending booking request. | `BookTables.tsx` via `api.post('/booking/createBookings')`. | Covered | Database overlap protection is present; browser-local time is converted to database `TIMESTAMP` without an explicit timezone policy. |
+| GET | `/api/Booking/getbookings` | List the current customer's bookings. | `MyBookings.tsx` via `api.get('/Booking/getbookings')`. | Covered | Backend supports limit/offset but the UI does not expose pagination controls; path casing is inconsistent. |
+| PATCH | `/api/cancel/bookings/:id/cancel` | Cancel a future pending/confirmed booking for customer or owner. | `MyBookings.tsx` and `OwnerBookings.tsx`. | Covered | Separate read fallback and update can race with status changes; path is non-canonical. |
+| GET | `/api/bookings/owner` | List bookings for restaurants owned by the current user. | `OwnerBookings.tsx` via `api.get('/bookings/owner')`. | Covered | No `requireRole` middleware, no pagination, and no frontend query controls. Handler query has no page bounds. |
+| PATCH | `/api/bookings/:id/status` | Owner confirms or rejects a pending booking. | `OwnerBookings.tsx` via `api.patch('/bookings/:id/status')`. | Covered | Status update is guarded by owner role and ownership; email delivery is fire-and-forget and not durable. |
+| POST | `/api/admin/promote` | Promote a user to owner by email. | `AdminPromote.tsx` via `api.post('/admin/promote')`. | Covered | Admin authorization exists; role/session cache invalidation is not implemented. |
+| GET | `/api/admin/users` | List all users for administration. | `AdminPanel.tsx` via `api.get('/admin/users')`. | Covered | No server-side pagination or filtering. |
+| PATCH | `/api/admin/users/role` | Change a user's role. | `AdminPanel.tsx` via `api.patch('/admin/users/role')`. | Covered | Existing access/refresh sessions are not invalidated after a role change. |
+| DELETE | `/api/auth/deleteUser` | Delete a user and cascade related records. | `AdminPanel.tsx` via `api.delete('/auth/deleteUser')`. | Covered | Destructive cascade lacks audit logging and last-admin/self-delete protections. |
+
+### 11.3 Frontend routes without a matching backend endpoint
+
+The following are frontend navigation routes, not backend API endpoints, so they do not need one-to-one backend routes:
+
+- `/`, `/browse`, `/browse/:restaurantId`
+- `/customer/login`, `/owner/login`, `/admin/login`
+- `/signup`
+- `/dashboard`, `/restaurants`, `/restaurants/:restaurantId/tables`, `/bookings`
+- `/book/:resourceId`, `/my-bookings`, `/admin`, `/admin/promote`
+
+These pages call the backend endpoints listed above or only provide client-side navigation.
+
+### 11.4 Frontend navigation gaps affecting endpoint access
+
+1. **Missing `/login` route:** `ProtectedRoute` redirects unauthenticated users to `/login`, but `App.tsx` defines only `/customer/login`, `/owner/login`, and `/admin/login`. `BrowseRestaurants.tsx` also links unauthenticated users to `/login`. This means an unauthenticated user may reach a blank/unmatched route instead of a login screen.
+2. **Customer/admin logout is not surfaced:** the backend logout endpoint has only an owner dashboard caller in the inspected pages. Every authenticated role should have a shared logout control.
+3. **Owner booking read authorization is weaker than its mutation authorization:** `/api/bookings/owner` uses `authenticate` but not `requireRole(["owner"])`; the SQL ownership filter limits data, but the route contract should state and enforce the role explicitly.
+4. **Login page role is not enforced by the API:** all three role-specific login pages call the same login endpoint, and `LoginForm` uses the returned role for navigation. This is acceptable if role pages are only UX entry points, but it should be documented or the API/UI should reject a customer attempting the owner/admin login surface.
+
+### 11.5 Final endpoint answer
+
+| Question | Answer |
+|---|---|
+| Does every backend business endpoint have a frontend caller? | Almost yes: all listed business endpoints have a caller or session mechanism. |
+| Does the root health endpoint have a frontend page? | No, and it normally should remain backend/monitoring-only. |
+| Are all frontend callers guaranteed to work end to end? | No. `/login` navigation is currently unmatched, logout is incomplete, and several route contracts remain non-canonical. |
+| Are backend authorization checks complete? | No. Owner booking listing lacks explicit owner middleware, and session invalidation after role changes/logout is incomplete. |
+
+**Required fixes:** add or replace the `/login` route consistently, create a shared logout action for every authenticated role, add explicit owner middleware to owner booking reads, align endpoint naming with one canonical contract, and add endpoint integration tests that exercise each frontend caller.
+
+## 12. Frontend Page Integration Audit
+
+### 12.1 Initialization architecture
+
+```text
+ [main.tsx]
+   |
+   v
+ [AuthProvider]
+   |
+   +--> silent refresh using refresh cookie
+   +--> load /auth/me
+   +--> provide accessToken, user, isInitializing, setAuth
+   |
+   v
+ [App.tsx / BrowserRouter]
+   |
+   +--> public pages
+   +--> ProtectedRoute
+        |
+        +--> authentication check
+        +--> optional allowedRoles check
+        v
+    [owner/customer/admin page]
+        |
+        v
+    [shared Axios api.ts]
+        |
+        +--> Bearer token injection
+        +--> 401 refresh/retry
+        +--> credential cookies
+```
+
+**Initialization summary:** The provider and router are correctly composed. The app has a central session-restore and 401-refresh mechanism, but individual pages still duplicate request state and some navigation targets do not exist.
+
+### 12.2 Page-by-page readiness matrix
+
+| Page/file | Registered? | Correct mechanism present? | Status | Main issue/fix |
+|---|---:|---:|---|---|
+| `LandingChoice.tsx` | Yes, `/` | Yes, navigation to role entry points | Mostly ready | Verify every CTA target and add a fallback/not-found route. |
+| `CustomerLogin.tsx` | Yes, `/customer/login` | Yes, delegates to `LoginForm` with customer label | Partially ready | Login role is presentation-only; backend authenticates any valid account. |
+| `OwnerLogin.tsx` | Yes, `/owner/login` | Yes, delegates to `LoginForm` with owner label | Partially ready | It does not reject a customer account before navigating; enforce or document role-specific behavior. |
+| `AdminLogin.tsx` | Yes, `/admin/login` | Yes, delegates to `LoginForm` with admin label | Partially ready | It does not reject non-admin accounts before login navigation; backend admin endpoints still protect data. |
+| `LoginForm.tsx` | Indirectly used by all login pages | Yes, login -> `/auth/me` -> `setAuth` -> role navigation | Partially ready | `from` can redirect to a route whose role does not match; add role-aware redirect validation. |
+| `Signup.tsx` | Yes, `/signup` | Yes, signup -> `setAuth` -> role navigation | Mostly ready | `as=owner` is only an informational notice; this is correct if owner activation is admin-controlled. |
+| `BrowseRestaurants.tsx` | Yes, `/browse` | Yes, public restaurant fetch and role-aware links | Not fully ready | Unauthenticated users are linked to missing `/login`; use `/customer/login` or add `/login`. |
+| `BrowseRestaurantTables.tsx` | Yes, `/browse/:restaurantId` | Yes, public resource fetch -> `/book/:resourceId` | Mostly ready | Needs invalid-ID/not-found handling and request cancellation/loading robustness. |
+| `BookTables.tsx` | Yes, `/book/:resourceId` | Yes, protected form -> booking request -> `/my-bookings` | Mostly ready | Uses browser-local time converted to ISO while database columns are timezone-less; define one timezone policy. |
+| `MyBookings.tsx` | Yes, `/my-bookings` | Yes, protected fetch/list/cancel/status display | Mostly ready | Backend pagination exists but UI has no pagination controls; route casing is non-canonical. |
+| `Dashboard.tsx` | Yes, `/dashboard` for owners | Yes, owner navigation and logout request | Not fully ready | Logout does not call `setAuth(null, null)` or clear the API token immediately; navigation goes to missing `/login`. |
+| `restaurants.mine.tsx` | Yes, `/restaurants` for owners | Yes, list/create restaurant flow | Partially ready | Does not expose backend-supported `opens_at`/`closes_at`; repeated fetch logic and effect dependency warning remain. |
+| `RestaurantTables.tsx` | Yes, `/restaurants/:restaurantId/tables` for owners | Yes, list/create resource flow | Partially ready | Current endpoint works, but errors are generic and requests are duplicated locally; no update/delete resource mechanism exists. |
+| `OwnerBookings.tsx` | Yes, `/bookings` for owners | Yes, list, confirm, reject, cancel | Partially ready | No pagination, no shared booking data layer, and owner read endpoint lacks explicit owner middleware. |
+| `AdminPanel.tsx` | Yes, `/admin` for admins | Yes, list/filter/role/delete with optimistic UI | Partially ready | No server pagination/audit protections; role changes do not refresh or revoke existing sessions. |
+| `AdminPromote.tsx` | Yes, `/admin/promote` for admins | Yes, promote-by-email form | Mostly ready | Promotion succeeds but current admin/user views may remain stale until refetch or reload. |
+
+### 12.3 Cross-page integration problems
+
+1. **Broken login navigation:** `ProtectedRoute` redirects to `/login`, and `BrowseRestaurants` links to `/login`, but `App.tsx` has no `/login` route. This is a real page-to-page integration defect.
+2. **Logout state is incomplete:** `Dashboard` calls the backend logout endpoint but does not call `setAuth(null, null)`. The in-memory Axios token can remain until refresh failure or page reload.
+3. **Role-specific login is not an authorization mechanism:** the three login pages share one backend login endpoint. A customer can submit through the owner/admin page and is redirected based on the returned role. This is safe only because backend admin/owner endpoints enforce permissions, but the UX contract should be explicit.
+4. **No shared navigation shell:** owner, customer, and admin pages duplicate navigation and logout behavior. This causes inconsistent links and makes the missing `/login` route easy to introduce.
+5. **No shared typed API/data layer:** each page owns Axios calls, interfaces, loading state, and refetch behavior. The pages are connected, but the mechanism is repetitive and prone to contract drift.
+6. **No route fallback:** unknown URLs have no explicit not-found page, making bad links look like blank application states.
+7. **Customer flow is present but not fully surfaced everywhere:** `/my-bookings` exists and browsing links it for authenticated users, but booking pages and shared navigation should consistently expose the same destination.
+
+### 12.4 Final frontend answer
+
+**No, not every frontend page is fully set up and initialized correctly with every other page.** The application bootstrap is correct and all current page files are registered or intentionally used as shared components. However, the complete page system is only **partially integrated** because `/login` is missing, logout state is not cleared, role-specific login behavior is not enforced at the UX/API boundary, and page-level networking/navigation is duplicated.
+
+**Required fixes:** add a single login entry route or change all redirects/links to the correct role login routes, centralize logout through `AuthContext`, add a shared navigation/auth shell, add a not-found route, expose pagination and restaurant hours where supported, and add frontend integration tests for each role's navigation path.
+
+## 13. Verification Notes
 
 - The report was refreshed against the current source tree, including `email.ts`, `booking.updateStatus.ts`, `MyBookings.tsx`, restaurant operating-hours fields, the GiST booking exclusion constraint, and the current role-aware `ProtectedRoute`.
 - Mermaid diagrams are included for rendered viewers, and equivalent plain-text 2D diagrams are included for editors/viewers that do not render Mermaid.
@@ -951,7 +1087,7 @@ Therefore the first required decision is to choose one canonical contract, then 
 - The available global `tsc` invocation from the repository root did not type-check the backend project; it printed compiler help because the command was not run with the backend project context. This report therefore does not claim a clean or failing backend compile.
 - No application source files were changed while preparing this report; only `report.md` was refreshed.
 
-## 12. Final Coverage Checklist
+## 14. Final Coverage Checklist
 
 - [x] Main architecture described and summarized.
 - [x] Backend and frontend architecture described and summarized.
@@ -961,6 +1097,8 @@ Therefore the first required decision is to choose one canonical contract, then 
 - [x] Booking approval/rejection, restaurant-hours validation, email notification, and customer booking-history flows described.
 - [x] Drawbacks are listed with severity and concrete technical impact.
 - [x] Current implementation findings were separated from obsolete findings from the previous audit.
+- [x] Frontend initialization, page registration, cross-page navigation, role guards, and page mechanisms audited.
+- [x] Frontend page-by-page readiness matrix and integration fixes included.
 - [x] Recommendations and a prioritized remediation sequence included.
 - [x] Test matrix and verification limitations included.
 - [x] Report saved at the requested workspace root as `report.md`.
