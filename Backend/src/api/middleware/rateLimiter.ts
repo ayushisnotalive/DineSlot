@@ -1,3 +1,4 @@
+import { unknown } from "zod";
 import { redis } from "../../infrastructure/DB/Redis";
 import type { Request,Response,NextFunction } from "express";
 
@@ -6,8 +7,8 @@ export const rateLimiter = (options:{windowSeconds:number; maxRequests:number})=
     return async(req:Request, res:Response, next:NextFunction)=>{
         try{
 
-            const identifier = req.ip;
-            const key = `ratelimi:${req.path}:${identifier}`
+            const identifier = req.ip || "unknown";
+            const key = `ratelimit:${req.path}:${identifier}`
 
             const current = await redis.incr(key);
 

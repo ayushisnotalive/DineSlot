@@ -1,13 +1,16 @@
 import type { Response } from "express";
 import type { AuthRequest } from "../../api/middleware/authenticate";
 import { db } from "../../infrastructure/DB/db";
+import { promoteSchema } from "../../infrastructure/services/global_validator";
 
 export const promoteToOwner = async (req: AuthRequest, res: Response) => {
-  const { email } = req.body;
+  const parsed = promoteSchema.safeParse(req.body);
 
-  if (!email) {
-    return res.status(400).json({ success: false, message: "Email is required." });
+  if (!parsed.success) {
+    return res.status(400).json({ success: false, errors: parsed.error.flatten() });
   }
+
+  const { email } = parsed.data;
 
   try {
     const result = await db.query(

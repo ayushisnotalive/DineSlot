@@ -21,3 +21,13 @@ export const createBookingSchema = z.object({
   booking_class: z.string().min(1),
 });
 
+
+export const promoteSchema = z.object({
+  email: z.string().email("Invalid email format"),
+});
+
+
+export const setRoleSchema = z.object({
+  userId: z.string().uuid("Invalid user ID"),
+  role: z.enum(["customer", "owner", "admin"]),
+});

@@ -1,10 +1,17 @@
 import type { Response } from "express";
 import type { AuthRequest } from "../../api/middleware/authenticate";
 import { db } from "../../infrastructure/DB/db";
+import { setRoleSchema } from "../../infrastructure/services/global_validator";
 
 export const setUserRole = async (req: AuthRequest, res: Response) => {
-  const { userId, role } = req.body;
+  const parsed = setRoleSchema.safeParse(req.body)
 
+   if (!parsed.success) {
+    return res.status(400).json({ success: false, errors: parsed.error.flatten() });
+  }
+
+
+  const { userId, role } = req.body;
   if (!["customer", "owner", "admin"].includes(role)) {
     return res.status(400).json({ success: false, message: "Invalid role." });
   }
