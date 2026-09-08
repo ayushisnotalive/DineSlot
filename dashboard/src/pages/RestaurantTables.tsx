@@ -46,7 +46,7 @@ export default function RestaurantTables() {
     setCreating(true);
     try {
       await api.post(
-        "/resources",
+        "/resources/createResources",   // ← was "/resources"
         { restaurant_id: restaurantId, name, type_of_table: typeOfTable, booking_class: bookingClass },
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );

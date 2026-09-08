@@ -1,6 +1,7 @@
 CREATE SCHEMA IF NOT EXISTS booking;
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 DO $$
 BEGIN
@@ -70,6 +71,24 @@ CREATE TABLE IF NOT EXISTS booking.bookings (
         REFERENCES booking.resources(id)
         ON DELETE CASCADE
 );
+
+-- Valid time ranges only.
+ALTER TABLE booking.bookings
+ADD CONSTRAINT chk_booking_time_order
+CHECK (start_time < end_time);
+
+-- The double-booking fix: no two non-cancelled bookings for the same
+-- resource may have overlapping time ranges. Enforced by Postgres at
+-- write time — no application-level lock or transaction trick can
+-- bypass this, and it stays correct even if new code paths insert
+-- bookings later (admin tools, imports, etc).
+ALTER TABLE booking.bookings
+ADD CONSTRAINT no_overlapping_bookings
+EXCLUDE USING gist (
+    resource_id WITH =,
+    tsrange(start_time, end_time) WITH &&
+)
+WHERE (status <> 'cancelled');
 
 CREATE INDEX IF NOT EXISTS idx_booking_resource_time
 ON booking.bookings(resource_id, start_time);

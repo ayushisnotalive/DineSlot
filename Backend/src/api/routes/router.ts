@@ -25,6 +25,7 @@ import { listAllUsers } from "../../modules/admin/users.list";
 import { setUserRole } from "../../modules/admin/users.setRole";
 import { rateLimiter } from "../middleware/rateLimiter";
 import { deleteUser } from "../../modules/admin/delete";
+import {updateBookingStatus} from "../../modules/Booking/booking.updateStatus";
 
 
 const authRouter = Router();
@@ -44,11 +45,12 @@ authRouter.get("/api/auth/me", authenticate, Me);
 authRouter.post("/api/auth/logout", logout);
 
 // restaurant
-authRouter.post("/api/restaurant/createRestaurant", authenticate, CreateRestaurant);
+authRouter.post("/api/restaurant/createRestaurant", authenticate, requireRole(["owner"]), CreateRestaurant);
 authRouter.get("/api/restaurants/mine", authenticate, getMyRestaurant);
 authRouter.get("/api/restaurants", getAllRestaurants);
+
 // resources
-authRouter.post("/api/resources/createResources", authenticate, CreateResources);
+authRouter.post("/api/resources/createResources", authenticate, requireRole(["owner"]), CreateResources);
 authRouter.get("/api/restaurants/resources", authenticate, getResourcesByRestaurant);
 authRouter.get("/api/public/resources", getPublicResources);
 
@@ -57,6 +59,7 @@ authRouter.post("/api/booking/createBookings", authenticate, CreateBooking);
 authRouter.get("/api/Booking/getbookings", authenticate, getMyBookings);
 authRouter.patch("/api/cancel/bookings/:id/cancel", authenticate, cancelMyBooking);
 authRouter.get("/api/bookings/owner", authenticate, getOwnerBookings);
+authRouter.patch("/api/bookings/:id/status", authenticate, requireRole(["owner"]), updateBookingStatus);
 
 // role based users implementation
 authRouter.post("/api/admin/promote", authenticate, requireRole(["admin"]), promoteToOwner);
