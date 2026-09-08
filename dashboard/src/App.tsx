@@ -12,6 +12,7 @@ import BookTable from './pages/BookTables';
 import AdminPromote from './pages/AdminPromote';
 import AdminPanel from './pages/AdminPanel';
 import LandingChoice from './pages/LandingPage';
+import MyBookings from './pages/MyBookings';
 
 function App() {
   return (
@@ -76,6 +77,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["admin"]}>
               <AdminPanel />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-bookings"
+          element={
+            <ProtectedRoute>
+              <MyBookings />
             </ProtectedRoute>
           }
         />

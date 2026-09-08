@@ -10,11 +10,10 @@ interface Restaurant {
 }
 
 export default function BrowseRestaurants() {
-  const { accessToken } = useAuth();
+  const { user } = useAuth();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [role, setRole] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -23,17 +22,6 @@ export default function BrowseRestaurants() {
       .catch(() => setError("Failed to load restaurants."))
       .finally(() => setLoading(false));
   }, []);
-
-  useEffect(() => {
-    if (!accessToken) {
-      setRole(null);
-      return;
-    }
-    api
-      .get("/auth/me", { headers: { Authorization: `Bearer ${accessToken}` } })
-      .then((res) => setRole(res.data.user.role))
-      .catch(() => setRole(null));
-  }, [accessToken]);
 
   if (loading) return <div>Loading...</div>;
 
@@ -44,17 +32,22 @@ export default function BrowseRestaurants() {
           <div className="text-2xl font-serif text-gray-900 tracking-tight">DineSlot</div>
 
           <div className="flex items-center gap-6">
-            {role === "admin" && (
+            {user?.role === "admin" && (
               <Link to="/admin" className="text-sm font-medium text-gray-600 hover:text-[var(--color-terracotta-600)]">
                 Admin Panel
               </Link>
             )}
-            {role === "owner" && (
+            {user?.role === "owner" && (
               <Link to="/dashboard" className="text-sm font-medium text-gray-600 hover:text-[var(--color-terracotta-600)]">
                 Owner Dashboard
               </Link>
             )}
-            {!accessToken && (
+            {user && (
+              <Link to="/my-bookings" className="text-sm font-medium text-gray-600 hover:text-[var(--color-terracotta-600)]">
+                My Bookings
+              </Link>
+            )}
+            {!user && (
               <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-[var(--color-terracotta-600)]">
                 Sign in
               </Link>
