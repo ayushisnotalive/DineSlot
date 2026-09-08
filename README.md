@@ -132,15 +132,3 @@ Set `VITE_API_URL` when the API is not using the default local or production URL
 - Booking overlap is enforced by PostgreSQL, not only by frontend or application logic.
 - The current token model is mixed: access tokens are available to JavaScript/local state and cookies are also used. HttpOnly-cookie-only authentication, active CSRF protection, refresh-session revocation on logout, and refresh-token reuse detection remain hardening tasks.
 
-## Remaining Work
-
-These items are intentionally recorded as pending rather than presented as completed:
-
-1. Remove duplicate restaurant-route registration and standardize API paths.
-2. Add a consistent `/login` frontend entry or update every redirect/link to role-specific login paths.
-3. Centralize logout so it clears React/API auth state and revokes the refresh session.
-4. Decide on one token transport and wire CSRF protection if cookie authentication remains.
-5. Make migrations safely repeatable for named constraints and repeated alterations.
-6. Add durable email delivery with retries/outbox and notification audit state.
-7. Add owner-hours editing, pagination, route fallback, and shared typed API utilities.
-8. Add backend and frontend integration tests, including authorization and concurrent booking tests.
