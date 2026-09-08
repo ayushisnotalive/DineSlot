@@ -43,6 +43,16 @@ CREATE TABLE IF NOT EXISTS booking.restaurants (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Operating hours, used by booking-time validation. Defaults keep
+-- existing restaurants bookable immediately; owners can update later.
+ALTER TABLE booking.restaurants
+ADD COLUMN IF NOT EXISTS opens_at TIME NOT NULL DEFAULT '09:00',
+ADD COLUMN IF NOT EXISTS closes_at TIME NOT NULL DEFAULT '22:00';
+
+ALTER TABLE booking.restaurants
+ADD CONSTRAINT chk_restaurant_hours
+CHECK (opens_at < closes_at);
+
 CREATE TABLE IF NOT EXISTS booking.resources (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     restaurant_id UUID NOT NULL REFERENCES booking.restaurants(id),
@@ -114,7 +124,13 @@ CREATE TABLE IF NOT EXISTS booking.refresh_sessions (
     replaced_by UUID
         REFERENCES booking.refresh_sessions(id)
 );
+ALTER TABLE booking.restaurants
+ADD COLUMN IF NOT EXISTS opens_at TIME NOT NULL DEFAULT '09:00',
+ADD COLUMN IF NOT EXISTS closes_at TIME NOT NULL DEFAULT '22:00';
 
+ALTER TABLE booking.restaurants
+ADD CONSTRAINT chk_restaurant_hours
+CHECK (opens_at < closes_at);
 -- One-time admin seed. Safe to re-run: does nothing if the account
 -- doesn't exist yet, or already has this role.
 -- If the account doesn't exist yet, sign up with this email first,

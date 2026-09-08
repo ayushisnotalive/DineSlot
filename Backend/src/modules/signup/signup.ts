@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import crypto from "crypto";
 import { db } from "../../infrastructure/DB/db";
 import { hashedPassword } from "../../infrastructure/configs/hashing";
 import { registerSchema } from "../../infrastructure/services/auth.validator";
@@ -18,8 +19,12 @@ export const signup = async (req: Request, res: Response) => {
                 errors: parsed.error.flatten(),
             });
         }
- 
-        const { name, email, mobile_no, password, role } = parsed.data;
+
+        const { name, email, mobile_no, password } = parsed.data;
+        // NOTE: role is intentionally ignored here even if the schema still
+        // accepts it in the request body. Every signup becomes 'customer'.
+        // Owners are promoted by an admin via /api/admin/promote.
+        // (Tighten registerSchema separately to drop `role` from input entirely.)
 
         const existingUser = await db.query(
             `SELECT id FROM booking.users WHERE email = $1`,
@@ -33,75 +38,55 @@ export const signup = async (req: Request, res: Response) => {
             });
         }
 
-        // Hash password
         const passwordHash = await hashedPassword(password);
 
-        // Create user
         const result = await db.query(
             `
             INSERT INTO booking.users (
-                name,
-                email,
-                mobile_no,
-                password_hash,
-                role
+                name, email, mobile_no, password_hash, role
             )
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING
-                id,
-                name,
-                email,
-                mobile_no,
-                role,
-                created_at;
+            VALUES ($1, $2, $3, $4, 'customer')
+            RETURNING id, name, email, mobile_no, role, created_at;
             `,
-            [name, email, mobile_no, passwordHash, role]
+            [name, email, mobile_no, passwordHash]
         );
 
         const user = result.rows[0];
 
-        // Generate access token
         const accessToken = generateAccessToken(user.id);
-
-        // Generate opaque refresh token
         const refreshToken = generateRefreshToken();
-
-        // Hash refresh token before storing it in DB
         const refreshTokenHash = hashRefreshToken(refreshToken);
+        const csrfToken = crypto.randomBytes(32).toString("hex");
 
-        // Store refresh-token session
         await db.query(
             `
-            INSERT INTO booking.refresh_sessions (
-                user_id,
-                token_hash,
-                expires_at
-            )
-            VALUES (
-                $1,
-                $2,
-                NOW() + INTERVAL '7 days'
-            )
+            INSERT INTO booking.refresh_sessions (user_id, token_hash, expires_at)
+            VALUES ($1, $2, NOW() + INTERVAL '7 days')
             `,
             [user.id, refreshTokenHash]
         );
 
-        // Access token cookie
-        res.cookie("accessToken", accessToken, {
-            secure: true,
-            sameSite: "none",
-            maxAge: 15 * 60 * 1000,
-            path: "/",
-        });
-
-        // Refresh token cookie
+        // Refresh token: HttpOnly, scoped to auth endpoints only. JS never sees it.
         res.cookie("refreshToken", refreshToken, {
+            httpOnly: true,
             secure: true,
             sameSite: "none",
             maxAge: 7 * 24 * 60 * 60 * 1000,
-            path: "/",
+            path: "/api/auth",
         });
 
+        // CSRF token: NOT HttpOnly — frontend reads it and echoes it back
+        // as a header on /refresh and /logout, proving the request came
+        // from same-origin JS and not a cross-site form/img/fetch.
+        res.cookie("csrfToken", csrfToken, {
+            httpOnly: false,
+            secure: true,
+            sameSite: "none",
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            path: "/api/auth",
+        });
+
+        // Access token: JSON only. Frontend keeps it in memory, never storage.
         return res.status(201).json({
             success: true,
             message: "User registered successfully.",
@@ -111,7 +96,6 @@ export const signup = async (req: Request, res: Response) => {
 
     } catch (err) {
         console.error("Signup error:", err);
- 
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",

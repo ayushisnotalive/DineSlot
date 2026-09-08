@@ -26,7 +26,7 @@ function App() {
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["owner"]}>
               <Dashboard />
             </ProtectedRoute>
           }
@@ -34,7 +34,7 @@ function App() {
         <Route
           path="/restaurants"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["owner"]}>
               <Restaunrant />
             </ProtectedRoute>
           }
@@ -42,7 +42,7 @@ function App() {
         <Route
           path="/restaurants/:restaurantId/tables"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["owner"]}>
               <RestaurantTables />
             </ProtectedRoute>
           }
@@ -50,23 +50,23 @@ function App() {
         <Route
           path="/bookings"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["owner"]}>
               <OwnerBookings />
             </ProtectedRoute>
           }
         />
         <Route
-            path="/book/:resourceId"
-            element={
-              <ProtectedRoute>
-                <BookTable />
-              </ProtectedRoute>
-  }
-/>
+          path="/book/:resourceId"
+          element={
+            <ProtectedRoute>
+              <BookTable />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/admin/promote"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["admin"]}>
               <AdminPromote />
             </ProtectedRoute>
           }
@@ -74,7 +74,7 @@ function App() {
         <Route
           path="/admin"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["admin"]}>
               <AdminPanel />
             </ProtectedRoute>
           }

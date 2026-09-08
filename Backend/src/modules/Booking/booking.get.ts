@@ -2,8 +2,11 @@ import type { AuthRequest } from "../../api/middleware/authenticate";
 import type { Response } from "express";
 import { db } from "../../infrastructure/DB/db";
 
-export const getMyBookings = async (req:AuthRequest, res:Response)=>{
-    try{
+export const getMyBookings = async (req: AuthRequest, res: Response) => {
+    try {
+        const limit = Math.min(Number(req.query.limit) || 20, 100);
+        const offset = Math.max(Number(req.query.offset) || 0, 0);
+
         const result = await db.query(
             `SELECT
                 b.id, b.start_time, b.end_time, b.status,
@@ -13,13 +16,18 @@ export const getMyBookings = async (req:AuthRequest, res:Response)=>{
             JOIN booking.resources r ON b.resource_id = r.id
             JOIN booking.users u ON b.user_id = u.id
             WHERE b.user_id = $1
-            ORDER BY b.start_time ASC`,
-            [req.userId]
-    );
-        return res.status(200).json({ success: true, bookings: result.rows });
-        }
-    catch (err) {
-                console.error(err);
-                return res.status(500).json({ success: false, message: "Internal Server Error" });
-                }
-    };
+            ORDER BY b.start_time ASC
+            LIMIT $2 OFFSET $3`,
+            [req.userId, limit, offset]
+        );
+
+        return res.status(200).json({
+            success: true,
+            bookings: result.rows,
+            pagination: { limit, offset, count: result.rows.length },
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+};

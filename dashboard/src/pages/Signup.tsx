@@ -13,9 +13,9 @@ export default function Signup() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { setAccessToken } = useAuth();
+  const { setAuth } = useAuth();
   const [searchParams] = useSearchParams();
-  const role = searchParams.get('as') === 'owner' ? 'owner' : 'customer';
+  const wantsOwner = searchParams.get('as') === 'owner';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,12 +23,18 @@ export default function Signup() {
     setIsLoading(true);
 
     try {
-      const response = await api.post('/auth/signup', { name, email, mobile_no: mobileNo, password, role });
-      setAccessToken(response.data.accessToken);
+      // role is intentionally NOT sent — the backend always creates
+      // 'customer' accounts now. Owner access is granted by an admin
+      // via promotion, not self-service at signup.
+      const response = await api.post('/auth/signup', {
+        name,
+        email,
+        mobile_no: mobileNo,
+        password,
+      });
 
-      const signedUpRole = response.data.user.role;
-      if (signedUpRole === 'owner') navigate('/dashboard');
-      else navigate('/browse');
+      setAuth(response.data.accessToken, response.data.user);
+      navigate('/browse');
     } catch (err) {
       if (isAxiosError(err) && err.response) {
         setError(err.response.data.message || 'An error occurred during signup');
@@ -47,6 +53,13 @@ export default function Signup() {
           <h1 className="text-4xl font-serif text-gray-900 mb-2 tracking-tight">Join DineSlot</h1>
           <p className="text-gray-500 text-sm tracking-wide">Elevate your restaurant's table management</p>
         </div>
+
+        {wantsOwner && (
+          <div className="mb-6 p-4 bg-amber-50 text-amber-800 text-sm rounded-lg border border-amber-100">
+            Owner accounts are activated by our team after signup. You'll start
+            with a customer account and we'll upgrade you once verified.
+          </div>
+        )}
 
         {error && (
           <div className="mb-6 p-4 bg-red-50 text-red-700 text-sm rounded-lg border border-red-100 flex items-center">

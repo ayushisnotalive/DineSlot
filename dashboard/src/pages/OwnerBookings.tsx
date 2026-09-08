@@ -1,7 +1,7 @@
 // src/pages/OwnerBookings.tsx
 import { useEffect, useState } from "react";
 import api from "../api";
-import { useAuth } from "../context/AuthContext";
+import { isAxiosError } from "axios";
 
 interface Booking {
   id: string;
@@ -16,15 +16,14 @@ interface Booking {
 }
 
 export default function OwnerBookings() {
-  const { accessToken } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [actioningId, setActioningId] = useState<string | null>(null);
 
   const fetchBookings = () => {
     api
-      .get("/bookings/owner", { headers: { Authorization: `Bearer ${accessToken}` } })
+      .get("/bookings/owner")
       .then((res) => setBookings(res.data.bookings))
       .catch(() => setError("Failed to load bookings."))
       .finally(() => setLoading(false));
@@ -32,21 +31,39 @@ export default function OwnerBookings() {
 
   useEffect(() => {
     fetchBookings();
-  }, [accessToken]);
+  }, []);
+
+  const handleStatusChange = async (bookingId: string, action: "confirm" | "reject") => {
+    setActioningId(bookingId);
+    setError("");
+    try {
+      await api.patch(`/bookings/${bookingId}/status`, { action });
+      fetchBookings();
+    } catch (err) {
+      if (isAxiosError(err) && err.response) {
+        setError(err.response.data.message || "Failed to update booking.");
+      } else {
+        setError("Failed to update booking.");
+      }
+    } finally {
+      setActioningId(null);
+    }
+  };
 
   const handleCancel = async (bookingId: string) => {
-    setCancellingId(bookingId);
+    setActioningId(bookingId);
+    setError("");
     try {
-      await api.patch(
-        `/cancel/bookings/${bookingId}/cancel`,
-        {},
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-      fetchBookings(); // refresh list to show updated status
+      await api.patch(`/cancel/bookings/${bookingId}/cancel`, {});
+      fetchBookings();
     } catch (err) {
-      setError("Failed to cancel booking.");
+      if (isAxiosError(err) && err.response) {
+        setError(err.response.data.message || "Failed to cancel booking.");
+      } else {
+        setError("Failed to cancel booking.");
+      }
     } finally {
-      setCancellingId(null);
+      setActioningId(null);
     }
   };
 
@@ -80,14 +97,32 @@ export default function OwnerBookings() {
                 {new Date(b.end_time).toLocaleTimeString()}
               </td>
               <td className="py-3 capitalize">{b.status}</td>
-              <td className="py-3">
-                {b.status !== "cancelled" && (
+              <td className="py-3 space-x-3">
+                {b.status === "pending" && (
+                  <>
+                    <button
+                      onClick={() => handleStatusChange(b.id, "confirm")}
+                      disabled={actioningId === b.id}
+                      className="text-green-600 text-sm hover:underline disabled:opacity-50"
+                    >
+                      {actioningId === b.id ? "..." : "Confirm"}
+                    </button>
+                    <button
+                      onClick={() => handleStatusChange(b.id, "reject")}
+                      disabled={actioningId === b.id}
+                      className="text-red-600 text-sm hover:underline disabled:opacity-50"
+                    >
+                      {actioningId === b.id ? "..." : "Reject"}
+                    </button>
+                  </>
+                )}
+                {b.status === "confirmed" && (
                   <button
                     onClick={() => handleCancel(b.id)}
-                    disabled={cancellingId === b.id}
+                    disabled={actioningId === b.id}
                     className="text-red-600 text-sm hover:underline disabled:opacity-50"
                   >
-                    {cancellingId === b.id ? "Cancelling..." : "Cancel"}
+                    {actioningId === b.id ? "Cancelling..." : "Cancel"}
                   </button>
                 )}
               </td>

@@ -2,6 +2,7 @@ import type { AuthRequest } from "../../api/middleware/authenticate";
 import type { Response } from "express";
 import { db } from "../../infrastructure/DB/db";
 import { z } from "zod";
+import { sendEmail, emailTemplates } from "../../infrastructure/services/email";
 
 const paramsSchema = z.object({ id: z.string().uuid() });
 
@@ -13,29 +14,35 @@ export const cancelMyBooking = async (req: AuthRequest, res: Response) => {
   const { id } = parsedParams.data;
 
   try {
-    // Single atomic statement: authorization (customer OR restaurant owner),
-    // current-status guard, and time-window policy are all enforced in the
-    // WHERE clause, so a concurrent cancel/confirm race can't corrupt state.
     const result = await db.query(
       `UPDATE booking.bookings b
        SET status = 'cancelled'
        FROM booking.resources r
        JOIN booking.restaurants rt ON rt.id = r.restaurant_id
+       JOIN booking.users cust ON cust.id = b.user_id
+       JOIN booking.users own ON own.id = rt.owner_id
        WHERE b.id = $1
          AND b.resource_id = r.id
          AND (b.user_id = $2 OR rt.owner_id = $2)
          AND b.status IN ('pending', 'confirmed')
          AND b.start_time > NOW()
-       RETURNING b.id, b.status`,
+       RETURNING b.id, b.status, b.start_time, b.end_time, rt.name AS restaurant_name,
+                 b.user_id, rt.owner_id, cust.email AS customer_email, own.email AS owner_email`,
       [id, req.userId]
     );
 
     if (result.rows.length > 0) {
-      return res.status(200).json({ success: true, booking: result.rows[0] });
+      const row = result.rows[0];
+      res.status(200).json({ success: true, booking: { id: row.id, status: row.status } });
+
+      // Notify whichever party did NOT click cancel.
+      const cancelledByCustomer = req.userId === row.user_id;
+      const notifyEmail = cancelledByCustomer ? row.owner_email : row.customer_email;
+      const template = emailTemplates.bookingCancelled(row.restaurant_name, row.start_time, row.end_time);
+      sendEmail({ to: notifyEmail, ...template });
+      return;
     }
 
-    // Zero rows updated — figure out why, to return a useful message
-    // instead of a generic 404 for every failure mode.
     const bookingCheck = await db.query(
       `SELECT b.status, b.start_time, b.user_id, rt.owner_id
        FROM booking.bookings b

@@ -17,6 +17,8 @@ const envSchema = z.object({
     JWT_REFRESH_SECRET : z.string(),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
     REDIS_URL: z.string(),
+    RESEND_API_KEY: z.string().min(1),
+    EMAIL_FROM: z.string().email(),
 })
 
 const parsed = envSchema.safeParse(process.env);

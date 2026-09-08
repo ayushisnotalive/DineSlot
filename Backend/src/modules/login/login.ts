@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import crypto from "crypto";
 import { db } from "../../infrastructure/DB/db";
 import { verifyPassword } from "../../infrastructure/configs/hashing";
 import { loginSchema } from "../../infrastructure/services/auth.validator";
@@ -24,67 +25,54 @@ export const login = async (req: Request, res: Response) => {
         );
 
         if (result.rows.length === 0) {
-            return res.status(401).json({
-                success: false,
-                message: "Invalid email or password",
-            });
+            return res.status(401).json({ success: false, message: "Invalid email or password" });
         }
 
         const user = result.rows[0];
-
         const isPasswordValid = await verifyPassword(password, user.password_hash);
 
         if (!isPasswordValid) {
-            return res.status(401).json({
-                success: false,
-                message: "Invalid email or password",
-            });
+            return res.status(401).json({ success: false, message: "Invalid email or password" });
         }
 
         const accessToken = generateAccessToken(user.id);
         const refreshToken = generateRefreshToken();
         const refreshTokenHash = hashRefreshToken(refreshToken);
+        const csrfToken = crypto.randomBytes(32).toString("hex");
 
         await db.query(
             `
-            INSERT INTO booking.refresh_sessions
-                (user_id, token_hash, expires_at)
-            VALUES
-                ($1, $2, NOW() + INTERVAL '7 days')
+            INSERT INTO booking.refresh_sessions (user_id, token_hash, expires_at)
+            VALUES ($1, $2, NOW() + INTERVAL '7 days')
             `,
             [user.id, refreshTokenHash]
         );
 
         res.cookie("refreshToken", refreshToken, {
+            httpOnly: true,
             secure: true,
-            sameSite: "none" as const,
+            sameSite: "none",
             maxAge: 7 * 24 * 60 * 60 * 1000,
-            path: "/",
+            path: "/api/auth",
         });
 
-        res.cookie("accessToken", accessToken, {
+        res.cookie("csrfToken", csrfToken, {
+            httpOnly: false,
             secure: true,
-            sameSite: "none" as const,
-            maxAge: 15 * 60 * 1000,
-            path: "/",
+            sameSite: "none",
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            path: "/api/auth",
         });
 
         return res.status(200).json({
             success: true,
             message: "User logged in successfully.",
             accessToken,
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-            },
+            user: { id: user.id, name: user.name, email: user.email },
         });
 
     } catch (err) {
         console.error(err);
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error",
-        });
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
     }
 };

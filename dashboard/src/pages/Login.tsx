@@ -5,17 +5,17 @@ import { isAxiosError } from 'axios';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
-  const [email, setEmail] = useState('testdeploy1@gmail.com');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from?.pathname;
+  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname;
   const [searchParams] = useSearchParams();
   const asRole = searchParams.get('as') || 'customer';
 
-  const { setAccessToken } = useAuth();
+  const { setAuth } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,18 +25,22 @@ export default function Login() {
     try {
       const response = await api.post('/auth/login', { email, password });
       const token = response.data.accessToken;
-      setAccessToken(token);
 
+      // login.ts's response doesn't include role, so fetch it once via /me.
+      // (api.ts's request interceptor won't see this token yet since it
+      // hasn't been pushed into context/api.ts state — pass it explicitly.)
       const meRes = await api.get('/auth/me', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const role = meRes.data.user.role;
+      const user = meRes.data.user ?? meRes.data;
+
+      setAuth(token, user);
 
       if (from) {
         navigate(from, { replace: true });
-      } else if (role === 'admin') {
+      } else if (user.role === 'admin') {
         navigate('/admin');
-      } else if (role === 'owner') {
+      } else if (user.role === 'owner') {
         navigate('/dashboard');
       } else {
         navigate('/browse');

@@ -1,40 +1,27 @@
 // src/components/ProtectedRoute.tsx
-import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import axios from "axios";
 import { useAuth } from "../context/AuthContext";
 
-const API_URL = import.meta.env.PROD
-  ? "https://dineslot-production-5dfd.up.railway.app"
-  : "http://localhost:5000"; // Adjust local backend port if needed
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+  allowedRoles?: string[]; // e.g. ["owner"], ["admin"] — omit to just require login
+}
 
-export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { accessToken } = useAuth();
-  const [authStatus, setAuthStatus] = useState<"loading" | "authenticated" | "unauthenticated">("loading");
+export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
+  const { accessToken, user, isInitializing } = useAuth();
   const location = useLocation();
 
-  useEffect(() => {
-    if (!accessToken) {
-      setAuthStatus("unauthenticated");
-      return;
-    }
-    axios
-      .get(`${API_URL}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      })
-      .then(() => setAuthStatus("authenticated"))
-      .catch(() => setAuthStatus("unauthenticated"));
-  }, [accessToken]);
-
-
-  if (authStatus === "loading") {
+  if (isInitializing) {
     return <div>Loading...</div>; // replace with a real spinner/skeleton later
   }
 
-  if (authStatus === "unauthenticated") {
+  if (!accessToken || !user) {
     return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(user.role ?? "")) {
+    return <Navigate to="/browse" replace />;
   }
 
   return <>{children}</>;
 };
-
