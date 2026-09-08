@@ -63,7 +63,6 @@ authRouter.patch("/api/bookings/:id/status", authenticate, requireRole(["owner"]
 
 // role based users implementation
 authRouter.post("/api/admin/promote", authenticate, requireRole(["admin"]), promoteToOwner);
-authRouter.post("/api/restaurant/createRestaurant", authenticate, requireRole(["owner"]), CreateRestaurant);
 authRouter.get("/api/admin/users", authenticate, requireRole(["admin"]), listAllUsers);
 authRouter.patch("/api/admin/users/role", authenticate, requireRole(["admin"]), setUserRole);
 authRouter.delete("/api/auth/deleteUser",authenticate, requireRole(["admin"]),deleteUser)
