@@ -66,11 +66,13 @@ export const signup = async (req: Request, res: Response) => {
             [user.id, refreshTokenHash]
         );
 
+        const isProduction = process.env.NODE_ENV === "production";
+
         // Refresh token: HttpOnly, scoped to auth endpoints only. JS never sees it.
         res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
-            secure: true,
-            sameSite: "none",
+            secure: isProduction,
+            sameSite: isProduction ? 'lax' : 'lax', 
             maxAge: 7 * 24 * 60 * 60 * 1000,
             path: "/api/auth",
         });
@@ -80,8 +82,8 @@ export const signup = async (req: Request, res: Response) => {
         // from same-origin JS and not a cross-site form/img/fetch.
         res.cookie("csrfToken", csrfToken, {
             httpOnly: false,
-            secure: true,
-            sameSite: "none",
+            secure: isProduction,
+            sameSite: isProduction ? 'lax' : 'lax',
             maxAge: 7 * 24 * 60 * 60 * 1000,
             path: "/api/auth",
         });

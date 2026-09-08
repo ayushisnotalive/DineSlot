@@ -48,18 +48,20 @@ export const login = async (req: Request, res: Response) => {
             [user.id, refreshTokenHash]
         );
 
+        const isProduction = process.env.NODE_ENV === "production";
+
         res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
-            secure: true,
-            sameSite: "none",
+            secure: isProduction,
+            sameSite: isProduction ? 'lax' : 'lax',
             maxAge: 7 * 24 * 60 * 60 * 1000,
             path: "/api/auth",
         });
 
         res.cookie("csrfToken", csrfToken, {
             httpOnly: false,
-            secure: true,
-            sameSite: "none",
+            secure: isProduction,
+            sameSite: isProduction ? 'lax' : 'lax',
             maxAge: 7 * 24 * 60 * 60 * 1000,
             path: "/api/auth",
         });

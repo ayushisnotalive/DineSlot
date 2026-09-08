@@ -40,7 +40,7 @@ The intended business flow is:
 5. Customers and restaurant owners view or cancel bookings.
 6. Administrators list users, change roles, promote users, or delete users.
 
-The repository has a reasonable high-level separation between HTTP routing, domain handlers, infrastructure services, and persistence. The main weaknesses are contract drift between the README, backend routes, and frontend calls; incomplete authorization boundaries; incomplete token/CSRF design; a broken owner-resource read path; and booking concurrency logic that is not a database-level exclusion guarantee. These issues mean the system should be treated as a development-stage prototype until the critical findings below are addressed.
+The repository has a reasonable high-level separation between HTTP routing, domain handlers, infrastructure services, and persistence. The current implementation has improved since the earlier audit: owner authorization is applied to the main owner routes, resource listing works, booking time rules exist, PostgreSQL now enforces non-overlap, customer booking history exists, and owner approval/rejection with email notifications has been added. The main remaining weaknesses are API contract drift, duplicated route registration, incomplete token/CSRF/session invalidation design, mixed time-zone handling, unpaginated owner/admin lists, and notification reliability/audit gaps.
 
 ### 1.1 Tech Stack Observed
 
@@ -55,6 +55,7 @@ The repository has a reasonable high-level separation between HTTP routing, doma
 | Authentication | JSON Web Tokens via `jsonwebtoken` | Signs short-lived access tokens. |
 | Refresh-token security | Node/Bun `crypto` SHA-256 hashing | Generates opaque refresh tokens and stores only their hashes. |
 | Password hashing | Argon2 via `argon2` | Hashes and verifies user passwords with Argon2id. |
+| Email delivery | Resend via `resend` | Sends fire-and-forget booking-request, confirmation, rejection, and cancellation emails. |
 | Request validation | Zod | Validates authentication, restaurant, resource, booking, promotion, and role payloads. |
 | HTTP security | `helmet`, `cors`, `cookie-parser` | Security headers, cross-origin policy, and cookie parsing. |
 | Rate limiting | `express-rate-limit` is listed, custom Redis limiter is used | The active implementation is the custom `rateLimiter` middleware backed by Redis. |
@@ -105,7 +106,7 @@ flowchart TD
     AuthRoutes --> AuthModules[signup, login, refresh, me, logout]
     RestaurantRoutes --> RestaurantModules[create, list all, mine]
     ResourceRoutes --> ResourceModules[create, owner list, public list]
-    BookingRoutes --> BookingModules[create, mine, owner, cancel]
+    BookingRoutes --> BookingModules[create, mine, owner, cancel, status update]
     AdminRoutes --> AdminModules[promote, list, role, delete]
     AuthModules --> Infra[env, DB, hashing, JWT, refresh token]
     RestaurantModules --> Infra
@@ -239,6 +240,7 @@ DineSlot/
 |       |   |       `-- schema.sql
 |       |   `-- services/
 |       |       |-- auth.validator.ts
+|       |       |-- email.ts
 |       |       |-- global_validator.ts
 |       |       |-- jwt.ts
 |       |       `-- refreshToken.ts
@@ -256,6 +258,7 @@ DineSlot/
 |           |   |-- booking.cancel.ts
 |           |   |-- Booking.create.ts
 |           |   |-- booking.get.ts
+|           |   |-- booking.updateStatus.ts
 |           |   `-- get.owner.booking.ts
 |           |-- login/
 |           |   `-- login.ts
@@ -306,6 +309,7 @@ DineSlot/
 |           |-- Dashboard.tsx
 |           |-- LandingPage.tsx
 |           |-- Login.tsx
+|           |-- MyBookings.tsx
 |           |-- OwnerBookings.tsx
 |           |-- restaurants.mine.tsx
 |           |-- RestaurantTables.tsx
@@ -359,6 +363,7 @@ DineSlot/
 | `Backend/src/infrastructure/DB/scripts/migrate.ts` | Reads `schema.sql`, executes it against PostgreSQL, and closes the pool. |
 | `Backend/src/infrastructure/DB/SQL/schema.sql` | Creates the `booking` schema, enum, users, restaurants, resources, bookings, refresh sessions, indexes, and admin seed update. |
 | `Backend/src/infrastructure/services/auth.validator.ts` | Defines signup and login Zod schemas. |
+| `Backend/src/infrastructure/services/email.ts` | Creates the Resend client, formats booking times, defines request/confirmation/rejection/cancellation email templates, and sends notifications without awaiting delivery. |
 | `Backend/src/infrastructure/services/global_validator.ts` | Defines restaurant, resource, booking, promotion, and role-change schemas. |
 | `Backend/src/infrastructure/services/jwt.ts` | Generates and verifies 15-minute access JWTs. |
 | `Backend/src/infrastructure/services/refreshToken.ts` | Generates opaque refresh tokens and hashes them with SHA-256 for storage. |
@@ -372,15 +377,16 @@ DineSlot/
 | `Backend/src/modules/auth/logout.ts` | Clears access and refresh cookies; it does not revoke the stored refresh session or update frontend localStorage. |
 | `Backend/src/modules/auth/me.ts` | Returns the authenticated user's id, name, email, and role. |
 | `Backend/src/modules/auth/refresh.ts` | Locks a refresh session, checks expiry/revocation, rotates tokens, and writes new cookies. |
-| `Backend/src/modules/restaurant/restaurant.create.ts` | Validates and inserts a restaurant owned by `req.userId`; route-level owner protection is currently inconsistent. |
+| `Backend/src/modules/restaurant/restaurant.create.ts` | Validates and inserts a restaurant owned by `req.userId`, including optional opening and closing times; the active route applies owner authorization. |
 | `Backend/src/modules/restaurant/restaurant.getAll.ts` | Returns the public restaurant list. |
 | `Backend/src/modules/restaurant/restaurant.mine.ts` | Returns restaurants owned by the authenticated user. |
 | `Backend/src/modules/resources/resources.create.ts` | Validates a resource, checks restaurant ownership, and inserts the table/resource. |
-| `Backend/src/modules/resources/resources.get.ts` | Intended to return resources for an owned restaurant, but currently contains incorrect SQL, missing response logic, and a missing return after 403. |
+| `Backend/src/modules/resources/resources.get.ts` | Validates the restaurant query, checks ownership against `booking.restaurants`, and returns the owned resource list. |
 | `Backend/src/modules/resources/resource.getAll.ts` | Returns public resources for a supplied restaurant query parameter. |
 | `Backend/src/modules/Booking/Booking.create.ts` | Validates booking input, checks overlap inside a transaction, inserts a pending booking, and commits. |
 | `Backend/src/modules/Booking/booking.get.ts` | Returns bookings belonging to the authenticated customer. |
 | `Backend/src/modules/Booking/booking.cancel.ts` | Checks customer/restaurant-owner authority and changes a booking to cancelled. |
+| `Backend/src/modules/Booking/booking.updateStatus.ts` | Lets the owning restaurant owner confirm or reject pending bookings and triggers a customer email notification. |
 | `Backend/src/modules/Booking/get.owner.booking.ts` | Returns bookings for restaurants owned by the authenticated user. |
 | `Backend/src/modules/admin/promote.ts` | Promotes a user identified by email to owner; admin-only at the route. |
 | `Backend/src/modules/admin/users.list.ts` | Returns all users for the admin panel. |
@@ -427,6 +433,7 @@ DineSlot/
 | `dashboard/src/pages/LandingPage.tsx` | Public landing/choice screen with navigation, promotional content, and interactive visual effects. |
 | `dashboard/src/pages/Login.tsx` | Login form, access-token storage, role lookup, and role-based navigation after login. |
 | `dashboard/src/pages/Signup.tsx` | Signup form for customer/owner roles, access-token storage, and post-signup navigation. |
+| `dashboard/src/pages/MyBookings.tsx` | Customer booking-history screen showing pending/confirmed/cancelled status and allowing future pending/confirmed cancellations. |
 | `dashboard/src/pages/BrowseRestaurants.tsx` | Public restaurant list; optionally loads the current role to show owner/admin navigation. |
 | `dashboard/src/pages/BrowseRestaurantTables.tsx` | Public resource/table list for one restaurant and navigation to booking. |
 | `dashboard/src/pages/BookTables.tsx` | Protected booking form that converts date/time input and creates a booking. |
@@ -489,14 +496,16 @@ erDiagram
     }
 ```
 
-**Data architecture summary:** PostgreSQL is the source of truth. Users have roles (`customer`, `owner`, `admin`). Restaurants belong to owners, resources belong to restaurants, and bookings belong to both users and resources. Booking classification is intentionally snapshotted into the booking row. Refresh sessions store hashes rather than raw refresh tokens. Foreign keys and a unique email constraint are present, but important booking and lifecycle constraints are incomplete.
+**Data architecture summary:** PostgreSQL is the source of truth. Users have roles (`customer`, `owner`, `admin`). Restaurants belong to owners and have opening/closing times, resources belong to restaurants, and bookings belong to both users and resources. Booking classification is intentionally snapshotted into the booking row. PostgreSQL now enforces valid time ordering and non-overlapping non-cancelled bookings with a GiST exclusion constraint. Refresh sessions store hashes rather than raw refresh tokens, but lifecycle and reuse controls remain incomplete.
 
 ### 4.2 Persistence micro-architecture
 
 - `Pool`: handlers normally call `db.query`; booking creation and refresh rotation explicitly acquire a client for transactions.
 - `Migration`: `scripts/migrate.ts` reads and executes the entire SQL schema file. It logs errors but does not set a failing process exit code.
 - `Schema evolution`: the schema uses `CREATE IF NOT EXISTS` and `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, which is convenient for local setup but is not a structured versioned migration system.
-- `Refresh sessions`: rotation revokes the old row and inserts a new row inside a transaction. The schema has `replaced_by`, but the rotation code does not populate it and does not implement token-family reuse detection.
+- `Refresh sessions`: rotation revokes the old row and inserts a new row inside a transaction. The schema has `replaced_by`, but the rotation code does not populate it, token-family reuse detection is not implemented, and logout does not revoke the active database session.
+- `Booking constraint`: `btree_gist` plus `EXCLUDE USING gist` prevents overlapping non-cancelled bookings for the same resource at the database layer. This is stronger than the earlier application-only overlap check.
+- `Notification side effect`: booking creation, owner status changes, and cancellation respond before calling Resend; email failures are logged but are not retried or persisted as durable notification jobs.
 - `Redis`: the rate limiter increments `ratelimit:<path>:<ip>` and sets expiry on the first request. It fails open when Redis is unavailable.
 
 ## 5. End-to-End Flow Summaries
@@ -509,7 +518,7 @@ erDiagram
 4. It also returns the access token in JSON; the dashboard puts that token into `localStorage`.
 5. The frontend navigates owners to `/dashboard` and customers to `/browse`.
 
-**Summary:** The flow has layered validation and secure password hashing, but role selection is client-controlled for `customer` or `owner`, duplicate checks are not paired with a `23505` recovery path, and tokens are simultaneously in cookies and JavaScript storage.
+**Summary:** The flow has layered validation and secure password hashing, but role selection is client-controlled for `customer` or `owner`, duplicate checks are not paired with a `23505` recovery path, and tokens are simultaneously in cookies and JavaScript storage. Owner onboarding policy must be explicit.
 
 ### 5.2 Login flow
 
@@ -551,7 +560,7 @@ erDiagram
 3. The owner opens a restaurant tables page.
 4. The page fetches owned resources and submits a new resource.
 
-**Summary:** The create-resource handler checks restaurant ownership correctly. The read handler has a wrong SQL table/column reference, a malformed placeholder, missing response, and missing `return` after its unauthorized response. The frontend also posts to a route that the backend does not expose.
+**Summary:** The current resource create/list flow now checks owner access and returns resources correctly. The remaining issue is contract naming: the dashboard and backend use `/resources/createResources`, while the README describes a different REST-style path.
 
 ### 5.7 Public browsing flow
 
@@ -564,19 +573,21 @@ erDiagram
 ### 5.8 Booking creation flow
 
 1. The booking page converts local date/time input to JavaScript ISO strings.
-2. The backend validates UUID and datetime fields.
-3. `CreateBooking` starts a transaction, searches for overlapping non-cancelled bookings with `OVERLAPS ... FOR UPDATE`, inserts the booking, and commits.
-4. The API returns a pending booking.
+2. The backend validates UUID, ordering, 30-minute notice, 90-day horizon, and 15-minute-to-4-hour duration rules.
+3. The backend checks that the requested time falls within the restaurant's opening hours.
+4. PostgreSQL's GiST exclusion constraint rejects overlaps for the same resource while cancelled bookings are excluded.
+5. The API returns a pending booking and fire-and-forget customer/owner notification requests.
 
-**Summary:** The intent is to prevent double booking, but locking only already-existing overlapping rows does not serialize two concurrent requests when no matching row exists. There is no PostgreSQL exclusion constraint, advisory lock, or resource-row lock, so the claimed concurrency guarantee is not proven.
+**Summary:** The current database design now provides the intended concurrent no-overlap guarantee more reliably than the earlier application-only check. Remaining concerns are timezone interpretation, lack of durable email delivery, and whether status changes and notifications are audited.
 
 ### 5.9 Booking read and cancel flow
 
-- Customers get their bookings from `booking.get.ts`.
+- Customers get paginated bookings from `booking.get.ts` and view/cancel them in `MyBookings.tsx`.
 - Owners get bookings for restaurants they own from `get.owner.booking.ts`.
-- A customer or restaurant owner may cancel after a lookup in `booking.cancel.ts`.
+- Owners confirm or reject pending bookings through `booking.updateStatus.ts`.
+- A customer or restaurant owner may cancel future pending/confirmed bookings through `booking.cancel.ts`.
 
-**Summary:** The ownership check for cancellation is present. Cancellation is not conditional on the current status and is not transactionally coupled to the authorization read, so concurrent requests can produce surprising repeated-success behavior. There is no temporal policy such as preventing cancellation after the booking starts.
+**Summary:** Status and future-time checks are now enforced in the cancellation update, and owner confirmation/rejection is scoped to owned pending bookings. The update-plus-notification operations are still not one durable transaction, owner listings are not paginated, and the separate fallback lookup makes cancellation behavior more complex.
 
 ### 5.10 Administration flow
 
@@ -673,23 +684,24 @@ erDiagram
 
 ### Booking consistency
 
-- The handler uses a transaction and overlap query.
+- The database uses a GiST exclusion constraint on resource and time range.
 - The database has an index on `(resource_id, start_time)`.
-- The database has no exclusion constraint on a `tstzrange`/`tsrange` expression.
-- `start_time < end_time` is not constrained.
+- `start_time < end_time` is constrained.
+- Restaurant opening/closing hours and booking notice/duration limits are validated.
 
-**Assessment:** The design is not sufficient for concurrent no-overlap enforcement. PostgreSQL range exclusion or a correctly serialized resource lock is required.
+**Assessment:** The core no-overlap invariant is now enforced at the database layer and is a strength of the design. It still uses `TIMESTAMP` without timezone and the application compares local-time values, so timezone policy needs to be made explicit.
 
 ```text
  Request A                         Request B
    |                                  |
-   +--> BEGIN                         +--> BEGIN
-   +--> find overlap: none            +--> find overlap: none
-   +--> INSERT booking                +--> INSERT booking
-   +--> COMMIT                        +--> COMMIT
+   +--> INSERT resource/time range    +--> INSERT overlapping range
+   |                                  |
+   v                                  v
+ [PostgreSQL GiST exclusion constraint]
+   |                                  |
+   +--> commit                        +--> 23P01 -> 409 conflict
 
- Result without a resource lock or exclusion constraint:
- overlapping bookings can both exist.
+ Cancelled rows are excluded from the constraint and may be booked again.
 ```
 
 ### Frontend state and networking
@@ -719,27 +731,27 @@ Severity uses `Critical`, `High`, `Medium`, and `Low` for impact and urgency.
 
 ### 7.1 Finding classification
 
-- **Confirmed defects:** directly visible in the source and expected to fail or weaken behavior, such as the duplicate restaurant route, broken resource handler, frontend/backend path mismatch, missing logout revocation, and incomplete booking serialization.
+- **Confirmed defects:** directly visible in the source and expected to fail or weaken behavior, such as duplicate route registration, API contract drift, missing logout revocation, incomplete notification durability, and unpaginated owner/admin lists.
 - **Conditional risks:** depend on product policy or deployment mode, such as whether public owner self-registration is allowed, whether HTTPS is used locally, and whether the mixed ESM/CommonJS environment behavior is supported by the selected Bun version.
 - **Removed overstatement:** cookie deletion failure is not listed as a confirmed bug. `clearCookie` behavior depends on the effective cookie path/domain options; the report only confirms that logout does not revoke the database session or clear the localStorage token.
 
 ### Critical / high impact
 
-1. **Owner resource listing is broken.** `resources.get.ts` queries `booking.users` while checking `owner_id` even though the restaurant relationship is in `booking.restaurants`; its resource query uses `$ 1` instead of `$1`; it does not send a success response; and it does not return after sending 403. The owner tables page therefore cannot reliably load resources.
-2. **Frontend create-resource URL does not match the backend.** The frontend posts to `/resources`, while the backend registers `/api/resources/createResources`. With the Axios base URL, the frontend request becomes `/api/resources`, which has no matching route.
-3. **Owner restaurant creation is not role-gated.** The route `POST /api/restaurant/createRestaurant` appears once without `requireRole`, then is registered again with `requireRole(["owner"])`. Express matches the first route, so any authenticated user can create a restaurant.
-4. **Booking double-booking prevention is not concurrency-safe.** `SELECT ... FOR UPDATE` locks matching booking rows only. Two transactions can both find no conflicting row and insert overlapping bookings. The database needs an exclusion constraint or a lock that serializes all bookings for the same resource.
-5. **CSRF defense is inactive.** The middleware is neither wired to mutations nor paired with code that issues a CSRF cookie. Because cookies are used for authentication, cross-site mutation protection is incomplete.
-6. **Tokens are exposed to JavaScript.** Signup and login return access tokens in JSON, and the dashboard stores them in localStorage. The refresh and access cookies are also created without `httpOnly`, so same-origin JavaScript can read them. A script running in the origin can therefore steal the available token material.
+1. **Duplicate restaurant route registration remains.** `POST /api/restaurant/createRestaurant` is registered twice, both now with owner authorization. The duplicate does not currently bypass authorization, but it creates ambiguity and should be removed.
+2. **API contract still differs from the documented REST paths.** The dashboard works with current routes such as `/restaurant/createRestaurant`, `/resources/createResources`, `/booking/createBookings`, and `/Booking/getbookings`, while the README describes `/restaurants`, `/resources`, `/bookings`, and `/bookings/me`.
+3. **Email notifications are fire-and-forget without durable delivery.** `email.ts` sends through Resend after the response; failures are only logged, with no retry, outbox, delivery state, or user-visible notification status.
+4. **CSRF defense is inactive.** The middleware is neither wired to mutations nor paired with code that issues a CSRF cookie. Current mutations mostly require a Bearer header, but refresh/logout still rely on cookies and need an explicit session/CSRF policy.
+5. **Tokens are exposed to JavaScript.** Signup and login return access tokens in JSON, and the dashboard stores them in localStorage. The access and refresh cookies are also created without `httpOnly`, so same-origin JavaScript can read them.
+6. **The schema migration is not safely idempotent.** `schema.sql` repeats the restaurant-hours `ALTER TABLE`, and named constraints such as `chk_restaurant_hours`, `chk_booking_time_order`, and `no_overlapping_bookings` are added without a guard. Re-running the migration can fail when those constraints already exist.
 
 ### High impact
 
 7. **Logout does not revoke refresh sessions.** A copied refresh token remains valid after logout until expiry or rotation. Logout also does not clear `AuthContext` localStorage state.
 8. **Logout does not clear client auth state.** The backend does not revoke the refresh session, and the dashboard logout handler does not call `setAccessToken(null)`. A stale localStorage token can keep the frontend in an authenticated state until a request fails.
 9. **Public owner signup is a policy decision with security consequences.** The backend accepts `role: "owner"` from an unauthenticated signup request. This is valid only if self-service owner onboarding is intentional; otherwise the server must assign `customer` by default and promote owners through an approved workflow.
-10. **Admin and owner frontend routes are not role-protected.** `ProtectedRoute` verifies only that a token is valid. `/admin`, `/admin/promote`, `/restaurants`, and `/bookings` can be opened by any authenticated role, relying on later API failures.
-11. **Booking input can create invalid ranges.** There is no server-side check that `start_time < end_time`, that the time is in an acceptable future window, or that the duration is bounded.
-12. **Migration failures can be hidden.** `migrate.ts` catches errors, logs them, and closes the pool without setting a nonzero exit code. Automation can interpret a failed migration as successful.
+10. **Owner/admin frontend guards are improved but still depend on client state.** `ProtectedRoute` now accepts `allowedRoles` and checks `AuthContext.user`, but a client-side role guard is not a security boundary; backend checks must remain authoritative.
+11. **Restaurant operating hours are not editable from the visible owner UI.** The backend accepts `opens_at` and `closes_at`, but the restaurant page currently submits only name/address, so owners cannot configure hours through the dashboard.
+12. **Booking status transitions are not fully transactional with email delivery.** The database update succeeds before Resend is called; a customer can see confirmed/rejected state without a guaranteed notification.
 
 ### Medium impact
 
@@ -756,7 +768,7 @@ Severity uses `Critical`, `High`, `Medium`, and `Low` for impact and urgency.
 23. **Frontend auth expiry is not recovered.** A 401 response does not automatically call `/auth/refresh`, update the token, and retry the request.
 24. **Frontend request paths are inconsistent.** Some paths are aligned with the current non-REST router, while others follow the README's intended REST paths. This makes feature behavior dependent on which page is used.
 25. **Date/time handling is timezone-sensitive.** `new Date(`${date}T${time}`)` uses browser-local interpretation, then converts to UTC, while PostgreSQL columns are `TIMESTAMP` without timezone. Users in different time zones can see or book unexpected times.
-26. **The booking response status is always `pending`.** There is no confirmation workflow, and the UI labels a successful insert as “Booking Confirmed!” even though the database status defaults to pending.
+26. **Booking response is initially `pending` by design, but notification/status wording must stay aligned.** Owner confirm/reject endpoints now exist, while the customer page displays pending/confirmed/cancelled states. The remaining risk is consistency between email delivery and persisted status.
 
 ### Low impact / maintainability
 
@@ -767,7 +779,7 @@ Severity uses `Critical`, `High`, `Medium`, and `Low` for impact and urgency.
 31. **The landing page contains hard-coded promotional claims.** “Michelin Guide 2025 Partner,” live allocations, table counts, and seating guarantees are not connected to backend data and can misrepresent system behavior.
 32. **The admin UI displays unsupported security claims.** “MFA Verified,” “Gateway Healthy,” and “Master Platform Admin” are presentation text; no MFA or health-check implementation was found.
 33. **The frontend has no general route fallback.** Unknown URLs render no explicit not-found page.
-34. **There is no pagination on public restaurants, bookings, or admin users.** List size will grow without a bound.
+34. **Pagination is incomplete.** Customer bookings have limit/offset pagination, but owner bookings, public restaurants, public resources, and admin users remain unbounded.
 
 ## 8. Recommended Target Architecture
 
@@ -792,14 +804,14 @@ flowchart TD
 
 ### Priority remediation sequence
 
-1. Fix route registration and the owner resource handler; add integration tests for every route.
-2. Add a PostgreSQL no-overlap guarantee using a range exclusion constraint, with valid time-range checks.
+1. Remove duplicate route registration and update the canonical API contract across router, dashboard, README, and tests.
+2. Make migrations safely repeatable, especially named constraints and repeated restaurant-hour alterations.
 3. Decide on HttpOnly-cookie auth or Authorization-header auth; remove the unused/duplicated token channel.
 4. Wire CSRF protection for cookie-authenticated mutations and revoke refresh sessions on logout.
-5. Enforce role and ownership policies on every mutation, especially restaurant creation, resource creation, booking cancellation, and admin operations.
-6. Align backend routes, frontend paths, README, and environment configuration around one versioned API contract.
-7. Add centralized errors, structured logs, request IDs, pagination, and audit logging for administrative actions.
-8. Add automated unit and integration tests, especially concurrent booking tests and authorization matrix tests.
+5. Add durable email delivery with an outbox/retry strategy, and record notification failures.
+6. Expose restaurant-hour editing in the owner dashboard and define one timezone policy.
+7. Add owner/admin/public-list pagination, centralized errors, structured logs, request IDs, and audit logging.
+8. Add automated unit and integration tests for exclusion conflicts, status transitions, cancellation races, authorization, and email side effects.
 
 ## 9. Suggested Test Matrix
 
@@ -854,17 +866,17 @@ Therefore the first required decision is to choose one canonical contract, then 
 | Login | Authenticate and establish a secure session. | Password verification and user-enumeration-safe errors work; access token is returned in JSON and stored in localStorage while cookies are also set. | Partial | Remove the duplicate token channel and align cookie/header behavior with the chosen auth design. |
 | Refresh | Rotate refresh token, detect reuse, and issue a new access token. | Rotation transaction works for basic rotation, but there is no token-family reuse detection, no `replaced_by` update, and no frontend refresh interceptor. | Partial | Implement token-family handling, populate replacement links, clean expired sessions, and retry 401 requests through one client interceptor. |
 | Logout | End the browser session and invalidate the server session. | Clears cookies only; does not revoke the database refresh session or clear the dashboard localStorage token. | No | Revoke the active refresh session and call `setAccessToken(null)` in the dashboard. |
-| Restaurant creation | `POST /restaurants`; owner creates a restaurant. | Current route is `/api/restaurant/createRestaurant`; the first duplicate route has no owner role guard, so any authenticated user can reach the handler. | No | Remove the duplicate route, select one REST path, and apply owner authorization before the handler. |
+| Restaurant creation | `POST /restaurants`; owner creates a restaurant. | Current route is `/api/restaurant/createRestaurant`; it is owner-guarded, but the same route is registered twice. | Mostly | Remove the duplicate registration and select one REST path. |
 | Restaurant listing | Public restaurant list and owner’s own list. | Public list and owner list exist and generally follow the intended behavior. | Mostly | Standardize path naming, validate pagination/query parameters, and add tests. |
 | Resource creation | Owner creates a table through `POST /resources`. | Backend exposes `/api/resources/createResources`; dashboard posts to `/api/resources`, so the UI request does not match the backend. | No | Align the route and frontend call, preferably using `/api/restaurants/:restaurantId/resources`. |
-| Owner resource listing | Return resources for an owned restaurant. | Ownership SQL checks `booking.users` instead of `booking.restaurants`, the placeholder is `$ 1`, success is never returned, and the unauthorized branch does not return. | No | Correct the ownership query, use `$1`, return 403 immediately, and send the resource list response. |
+| Owner resource listing | Return resources for an owned restaurant. | Current handler checks `booking.restaurants`, uses `$1`, returns 403 correctly, and returns the resource list. | Yes | Add route/query integration tests and canonicalize the endpoint name. |
 | Public browsing | Visitor sees restaurants and tables, then chooses a resource. | This flow exists and the public endpoints are reachable without authentication. | Yes, with gaps | Validate the restaurant UUID, handle unknown restaurants explicitly, and add pagination. |
-| Booking creation | Authenticated customer books one resource without overlap, with a reliable database guarantee. | Booking insert and basic overlap query exist, but concurrent empty-slot requests can both pass because only matching rows are locked. | Partial | Add a PostgreSQL exclusion constraint or serialize on the resource row/advisory lock; validate time ordering and duration. |
-| Booking status | UI should reflect the persisted lifecycle (`pending`, `confirmed`, `cancelled`). | Database default is `pending`, but the UI says “Booking Confirmed!” immediately after insertion. | No | Either insert as confirmed or change the UI to “Booking requested/pending” and implement confirmation. |
-| Customer booking history | Customer lists their own bookings through a documented route. | Backend route is `/api/Booking/getbookings`; the README documents `/bookings/me`, and the dashboard structure does not show a customer booking-history page. | No | Standardize the route and add a customer bookings screen. |
-| Booking cancellation | Customer or owning restaurant cancels a booking through a documented route. | Authorization lookup exists, but the current path is `/api/cancel/bookings/:id/cancel`, status is not conditionally checked, and cancellation is not transactional with authorization. | Partial | Use one route, update only non-cancelled rows, and define past-booking/cancellation policy. |
-| Owner booking management | Owner sees bookings for owned restaurants and can manage them. | Owner query and dashboard page exist; the route is `/api/bookings/owner`. | Mostly | Add role middleware, pagination, and consistent status/action rules. |
-| Admin management | Admin-only user list, promotion, role changes, and deletion. | Backend admin endpoints use `requireRole`; frontend routes only check authentication and rely on API rejection for non-admins. | Partial | Add role-aware frontend guards and protect the last-admin/self-deletion cases server-side. |
+| Booking creation | Authenticated customer books one resource without overlap, with a reliable database guarantee. | Backend validates notice/horizon/duration/hours and PostgreSQL excludes overlapping non-cancelled ranges. | Yes, with gaps | Standardize timezone handling and add integration/concurrency tests. |
+| Booking status | UI should reflect the persisted lifecycle (`pending`, `confirmed`, `cancelled`). | New bookings are pending; owners can confirm/reject pending bookings and customers see status on `MyBookings`. | Mostly | Make notification delivery durable and keep UI/email wording aligned with status. |
+| Customer booking history | Customer lists their own bookings through a documented route. | `MyBookings.tsx` calls the current `/Booking/getbookings` route and supports cancellation for future pending/confirmed bookings. | Mostly | Rename the route to the canonical contract and add pagination UI. |
+| Booking cancellation | Customer or owning restaurant cancels a booking through a documented route. | Update is restricted to pending/confirmed future bookings and notifies the other party; current path remains non-REST. | Mostly | Standardize the route and define behavior for race conditions/status transitions. |
+| Owner booking management | Owner sees bookings for owned restaurants and can manage them. | Owner query and dashboard page exist; owner can confirm/reject pending and cancel confirmed bookings. | Mostly | Add owner-list pagination, explicit role middleware on the read route, and durable notification handling. |
+| Admin management | Admin-only user list, promotion, role changes, and deletion. | Backend admin endpoints use `requireRole`; frontend routes now use `allowedRoles` plus current user state. | Mostly | Keep backend authoritative and protect last-admin/self-deletion cases server-side. |
 | CSRF protection | Cookie-authenticated state changes require a CSRF token. | CSRF middleware exists but no token is issued and it is not attached to mutation routes. | No | Either use Bearer-only auth consistently or issue/check CSRF tokens on every cookie-authenticated mutation. |
 | Documentation | README matches runnable routes and current dashboard. | README documents different endpoint names, claims HttpOnly cookies and active database-level booking protection, and says no frontend exists even though dashboard code is present. | No | Rewrite README from the canonical route table and actual security behavior. |
 
@@ -891,20 +903,20 @@ Therefore the first required decision is to choose one canonical contract, then 
 
 #### C. Authorization differences
 
-- Expected restaurant creation to be owner-only; current duplicate route ordering makes the unguarded route win.
-- Expected frontend owner/admin screens to reflect roles; current `ProtectedRoute` checks authentication only.
-- Expected all ownership checks to target the correct tables; current resource listing checks the wrong table.
+- Expected restaurant creation to be owner-only; current route is owner-guarded, but the route is registered twice.
+- Expected frontend owner/admin screens to reflect roles; current `ProtectedRoute` now accepts `allowedRoles` and checks the loaded user, while backend checks remain authoritative.
+- Expected ownership checks to target the correct tables; current resource listing checks `booking.restaurants` correctly.
 
-**Fix:** Apply `requireRole` before every owner/admin operation, centralize ownership policies, correct the resource query, and add an authorization matrix test suite.
+**Fix:** Remove duplicate registration, centralize ownership policies, preserve server-side role checks, and add an authorization matrix test suite.
 
 #### D. Booking/business-rule differences
 
-- Expected no concurrent double bookings; current row lock does not lock an empty conflict set.
-- Expected valid time intervals; current code does not enforce `start_time < end_time`, future time, or maximum duration.
-- Expected status-driven UI; current UI declares confirmation while the database returns `pending`.
-- Expected customer booking history; the backend exists under a non-documented path but the dashboard has no clear customer history screen.
+- Expected no concurrent double bookings; current PostgreSQL GiST exclusion constraint now enforces this for non-cancelled rows.
+- Expected valid time intervals; current code enforces ordering, 30-minute notice, 90-day horizon, 15-minute minimum, and 4-hour maximum, plus restaurant hours.
+- Expected status-driven UI; current UI shows pending/confirmed/cancelled and owner actions exist.
+- Expected customer booking history; `MyBookings.tsx` now provides the screen, though the route name remains non-canonical.
 
-**Fix:** Add a PostgreSQL range exclusion constraint or resource serialization, validate time rules, align UI language with status, and implement the customer booking-history page.
+**Fix:** Standardize timezone and route behavior, add durable notification delivery, expose restaurant-hour editing in the owner UI, and test status/cancellation races.
 
 #### E. Documentation and operational differences
 
@@ -923,20 +935,21 @@ Therefore the first required decision is to choose one canonical contract, then 
 | Backend/frontend API contract | Does not match |
 | Authentication/security design | Does not match the documented design |
 | Authorization enforcement | Partially matches; critical gaps remain |
-| Booking concurrency guarantee | Does not match the documented guarantee |
+| Booking concurrency guarantee | Matches the documented guarantee more closely; PostgreSQL now enforces non-overlap |
 | Database model | Mostly matches the intended model |
 | Documentation | Does not match the current implementation |
 
-**Final conclusion:** DineSlot is directionally aligned with the expected restaurant booking product, but it is not implementation-compatible with its own documented flow. The API paths, auth strategy, owner authorization, resource flow, booking guarantee, status semantics, and documentation must be reconciled before the system can be considered functionally complete.
+**Final conclusion:** DineSlot is now substantially aligned with the expected restaurant booking product at the business-flow level. It is still not fully compatible with its own documented API/security contract because route names, token transport, CSRF/session invalidation, and operational guarantees around email delivery differ. The booking integrity and lifecycle model are materially stronger than in the previous audit.
 
 ## 11. Verification Notes
 
-- The report was based on the complete source tree presented in the workspace, including backend handlers, middleware, services, SQL schema, migration script, dashboard routes, context, API client, and pages.
+- The report was refreshed against the current source tree, including `email.ts`, `booking.updateStatus.ts`, `MyBookings.tsx`, restaurant operating-hours fields, the GiST booking exclusion constraint, and the current role-aware `ProtectedRoute`.
 - Mermaid diagrams are included for rendered viewers, and equivalent plain-text 2D diagrams are included for editors/viewers that do not render Mermaid.
 - Findings were rechecked against the route table, resource handler, logout handler, signup handler, and booking transaction code. The cookie-deletion claim was narrowed because deletion failure was not reproduced; the confirmed logout defects are missing refresh-session revocation and missing localStorage cleanup.
+- The earlier booking-concurrency, broken-resource-handler, unguarded-restaurant-route, missing-customer-history, and missing-status-workflow findings were rechecked and removed or downgraded where the current code now addresses them.
 - A root-level `npm run build` and `npm run lint` cannot run because the repository root has no `package.json` scripts. The relevant scripts are under `dashboard/`.
 - The available global `tsc` invocation from the repository root did not type-check the backend project; it printed compiler help because the command was not run with the backend project context. This report therefore does not claim a clean or failing backend compile.
-- The working tree already had an unrelated modification in `dashboard/src/index.css`; it was not changed while preparing this report.
+- No application source files were changed while preparing this report; only `report.md` was refreshed.
 
 ## 12. Final Coverage Checklist
 
@@ -945,7 +958,9 @@ Therefore the first required decision is to choose one canonical contract, then 
 - [x] Database/data architecture described and summarized.
 - [x] Authentication, authorization, validation, CSRF, rate limiting, refresh-token, booking, and frontend-state micro-architectures described and summarized.
 - [x] Signup, login, refresh, logout, restaurant, resource, browsing, booking, cancellation, and admin flows described.
+- [x] Booking approval/rejection, restaurant-hours validation, email notification, and customer booking-history flows described.
 - [x] Drawbacks are listed with severity and concrete technical impact.
+- [x] Current implementation findings were separated from obsolete findings from the previous audit.
 - [x] Recommendations and a prioritized remediation sequence included.
 - [x] Test matrix and verification limitations included.
 - [x] Report saved at the requested workspace root as `report.md`.
